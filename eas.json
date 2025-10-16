@@ -1,0 +1,38 @@
+{
+  "cli": {
+    "version": ">= 3.13.0"
+  },
+  "build": {
+    "production": {
+      "distribution": "store",
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "EXPO_USE_DEV_SERVER": "true",
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      },
+      "cache": {
+        "disabled": true
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_USE_DEV_SERVER": "true"
+      },
+      "cache": {
+        "disabled": true
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6754048452",
+        "appleId": "vogelmeplz12@gmail.com",
+        "appleTeamId": "2AX533DL45"
+      }
+    }
+  }
+}

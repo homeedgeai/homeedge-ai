@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "openhouse-ai",
+    "name": "HomeEdge AI",
     "slug": "openhouse-ai",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,9 +8,21 @@
     "scheme": "openhouseai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
     "ios": {
-      "supportsTablet": true
+      "buildNumber": "2",
+      "supportsTablet": true,
+      "bundleIdentifier": "org.homeedgeai.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "HomeEdge AI uses your camera to scan rooms and create floor plans.",
+        "NSMicrophoneUsageDescription": "HomeEdge AI uses your microphone during AR scanning for improved spatial accuracy.",
+        "NSPhotoLibraryAddUsageDescription": "Allows HomeEdge AI to save generated floor plans to your Photos library.",
+        "NSPhotoLibraryUsageDescription": "Allows HomeEdge AI to import reference images for property listings.",
+        "UIRequiredDeviceCapabilities": ["arm64"],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
+
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -19,12 +31,15 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "org.homeedgeai.app"
     },
+
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -34,15 +49,38 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "dark": { "backgroundColor": "#000000" }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
+
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e0f3c9f6-6502-4892-97f4-78fdcc31ed99"
+      },
+      "supabaseUrl": "${EXPO_PUBLIC_SUPABASE_URL}",
+      "supabaseAnonKey": "${EXPO_PUBLIC_SUPABASE_ANON_KEY}",
+      "apiUrl": "${EXPO_PUBLIC_API_URL}"
+    },
+
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+
+    "updates": {
+      "url": "https://u.expo.dev/e0f3c9f6-6502-4892-97f4-78fdcc31ed99"
+    },
+
+    "androidStatusBar": {
+      "backgroundColor": "#ffffff"
     }
   }
 }
