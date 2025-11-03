@@ -1,38 +1,59 @@
 {
-  "cli": {
-    "version": ">= 3.13.0"
-  },
+  "cli": { "version": ">= 3.13.0" },
   "build": {
-    "production": {
-      "distribution": "store",
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "node": "18.18.0",
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "latest",
+        "buildConfiguration": "Debug",
+        "autoIncrement": false
       },
+      "android": { "buildType": "apk" },
       "env": {
         "EXPO_USE_DEV_SERVER": "true",
-        "NODE_OPTIONS": "--max-old-space-size=4096"
+        "EXPO_PUBLIC_BACKEND_URL": "http://192.168.0.9:8000"
       },
-      "cache": {
-        "disabled": true
-      }
+      "cache": { "disabled": true }
+    },
+    "production": {
+      "distribution": "store",
+      "node": "18.18.0",
+      "ios": {
+        "simulator": false,
+        "image": "latest",
+        "autoIncrement": "buildNumber"
+      },
+      "env": {
+        "EXPO_USE_DEV_SERVER": "false",
+        "NODE_OPTIONS": "--max-old-space-size=4096",
+        "EXPO_PUBLIC_BACKEND_URL": "https://api.homeedgeai.com"
+      },
+      "cache": { "disabled": false }
     },
     "preview": {
       "distribution": "internal",
+      "ios": { "simulator": false, "image": "latest" },
       "env": {
-        "EXPO_USE_DEV_SERVER": "true"
+        "EXPO_USE_DEV_SERVER": "true",
+        "EXPO_PUBLIC_BACKEND_URL": "http://armonmoore.local:8000"
       },
-      "cache": {
-        "disabled": true
-      }
-    }
-  },
-  "submit": {
-    "production": {
-      "ios": {
-        "ascAppId": "6754048452",
-        "appleId": "vogelmeplz12@gmail.com",
-        "appleTeamId": "2AX533DL45"
-      }
+      "cache": { "disabled": true }
+    },
+    "internal": {
+      "distribution": "internal",
+      "node": "18.18.0",
+      "ios": { "simulator": false, "image": "latest", "autoIncrement": "buildNumber" },
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_USE_DEV_SERVER": "false",
+        "EXPO_PUBLIC_BACKEND_URL": "https://api.homeedgeai.com"
+      },
+      "cache": { "disabled": false }
     }
   }
+  /* NOTE: I removed the "submit" section that hard-coded your old Apple ID/Team.
+     We’ll set that up again after the new EAS project is linked. */
 }
