@@ -1,10 +1,10 @@
-import React from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 import {
   DrawerContentScrollView,
   DrawerItemList,
 } from "@react-navigation/drawer";
 import { useNavigation } from "@react-navigation/native";
+import React from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function CustomDrawer(props: any) {
   const navigation = useNavigation();
@@ -19,7 +19,7 @@ export default function CustomDrawer(props: any) {
           onPress={() => navigation.navigate("Settings" as never)}
         >
           <Image
-            source={require("../assets/images/profile.png")} // fallback default profile
+            source={require("@assets/images/logo.png")} // fallback default profile
             style={styles.profilePic}
           />
           <View>

@@ -1,86 +1,88 @@
-// app/listings/floorplan.tsx
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from "react-native";
-import * as FileSystem from "expo-file-system";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Share, Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
-const BACKEND = "http://armonmoore.local:8000"; // your local mDNS host
+const API = "http://192.168.0.14:8000";
 
 export default function Floorplan() {
-  const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"edges"|"ai">("ai");
-  const [pngUrl, setPngUrl] = useState<string | null>(null);
+  const router = useRouter();
+  const { jobId } = useLocalSearchParams<{ jobId?: string }>();
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const fetchLatest = async () => {
-    setPngUrl(null);
-    try {
-      if (mode === "ai") {
-        setPngUrl(`${BACKEND}/viewer/floorplan_labeled.png?ts=${Date.now()}`);
-      } else {
-        setPngUrl(`${BACKEND}/viewer/floorplan.png?ts=${Date.now()}`);
+  useEffect(() => {
+    if (!jobId) return;
+    const tick = async () => {
+      try {
+        const r = await fetch(`${API}/plan/status?job_id=${jobId}`);
+        const j = await r.json();
+        if (j.status === "complete") {
+          setData(j); setLoading(false);
+        } else {
+          setTimeout(tick, 1200);
+        }
+      } catch {
+        setTimeout(tick, 1800);
       }
-    } catch (e:any) {
-      console.warn(e);
+    };
+    tick();
+  }, [jobId]);
+
+  const handle3D = () => {
+    if (!data?.mesh_url) {
+      Alert.alert("3D not available", "Add depth capture to enable 3D.");
+      return;
     }
+    router.push({ pathname: "/listings/floorplan-3d", params: { mesh_url: data.mesh_url } });
   };
 
-  useEffect(() => { fetchLatest(); }, [mode]);
-
-  const runSegment = async () => {
-    // naive: segment the most recent uploaded image (you can pass a chosen filename)
-    // Replace with your own filename picker if needed
+  const handleShare = async () => {
+    if (!data?.floorplan_url) return;
     try {
-      setBusy(true);
-      // simple: list uploads and pick the last jpg/png
-      const res = await fetch(`${BACKEND}/uploads`); // optional if you expose listing
-      // If you don't expose a listing route, just hard-code the filename you want to test.
-      // Here we assume you’ll supply a filename manually:
-      const filename = "frame_00200.jpg"; // TODO: swap for a real uploaded frame name
-      const fd = new FormData();
-      fd.append("filename", filename);
-      const r = await fetch(`${BACKEND}/segment`, { method: "POST", body: fd });
-      if (!r.ok) {
-        const j = await r.json().catch(()=>({}));
-        throw new Error(j?.detail || `HTTP ${r.status}`);
-      }
-      await fetchLatest();
-      Alert.alert("Segmented", "AI blueprint updated.");
-    } catch (e:any) {
-      Alert.alert("Segment error", String(e.message || e));
-    } finally {
-      setBusy(false);
-    }
+      await Share.share({ url: data.floorplan_url, message: "My AI floorplan (HomeEdge)", title: "Home scan" });
+    } catch {}
   };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#00ffcc" />
+        <Text style={styles.loading}>Building your floorplan…</Text>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16 }}>
-      <Text style={{ fontSize: 20, fontWeight: "600", marginBottom: 12 }}>🧭 Floorplan Preview</Text>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Image source={{ uri: data.floorplan_url }} style={styles.image} resizeMode="contain" />
+        <Text style={styles.caption}>AI-Generated Floorplan</Text>
+      </ScrollView>
 
-      <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
-        <TouchableOpacity onPress={() => setMode("ai")} style={{ paddingVertical: 8, paddingHorizontal: 12, backgroundColor: mode==="ai"?"#007bff":"#eee", borderRadius: 8 }}>
-          <Text style={{ color: mode==="ai"?"#fff":"#333" }}>AI Blueprint</Text>
+      <View style={styles.bottom}>
+        <TouchableOpacity style={styles.btn} onPress={() => router.push("/listings/scan-room")}>
+          <Ionicons name="camera" size={24} color="#000" /><Text style={styles.btnText}>Rescan</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setMode("edges")} style={{ paddingVertical: 8, paddingHorizontal: 12, backgroundColor: mode==="edges"?"#007bff":"#eee", borderRadius: 8 }}>
-          <Text style={{ color: mode==="edges"?"#fff":"#333" }}>Raw Edges</Text>
+        <TouchableOpacity style={styles.btn} onPress={handle3D}>
+          <Ionicons name="cube" size={24} color="#000" /><Text style={styles.btnText}>View 3D</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={runSegment} disabled={busy} style={{ paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "#28a745", borderRadius: 8 }}>
-          <Text style={{ color: "#fff" }}>{busy?"Segmenting…":"Segment latest"}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={fetchLatest} style={{ paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "#6c757d", borderRadius: 8 }}>
-          <Text style={{ color: "#fff" }}>Refresh</Text>
+        <TouchableOpacity style={styles.btn} onPress={handleShare}>
+          <Ionicons name="share-social" size={24} color="#000" /><Text style={styles.btnText}>Share</Text>
         </TouchableOpacity>
       </View>
-
-      {pngUrl ? (
-        <Image
-          source={{ uri: pngUrl }}
-          style={{ width: "100%", height: 480, resizeMode: "contain", backgroundColor: "#f6f1eb", borderRadius: 12 }}
-        />
-      ) : (
-        <View style={{ height: 120, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator />
-          <Text style={{ marginTop: 8 }}>Waiting for floorplan…</Text>
-        </View>
-      )}
-    </ScrollView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container:{ flex:1, backgroundColor:"#000" },
+  center:{ flex:1, justifyContent:"center", alignItems:"center", backgroundColor:"#000" },
+  loading:{ color:"#9ff", marginTop:12, fontWeight:"700" },
+  scroll:{ alignItems:"center", padding:16 },
+  image:{ width:"100%", height:620, backgroundColor:"#111", borderRadius:16 },
+  caption:{ color:"#9ff", marginTop:14, fontWeight:"800", fontSize:18 },
+  bottom:{ flexDirection:"row", justifyContent:"space-around", padding:16, backgroundColor:"#fff", borderTopLeftRadius:20, borderTopRightRadius:20 },
+  btn:{ flexDirection:"row", alignItems:"center", gap:8, backgroundColor:"#fff", paddingHorizontal:14, paddingVertical:10, borderRadius:22, elevation:3 },
+  btnText:{ fontWeight:"800" }
+});

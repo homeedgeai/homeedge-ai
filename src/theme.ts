@@ -1,16 +1,25 @@
-// src/theme.ts
+// app/src/theme.ts
+
+import { useColorScheme } from "react-native";
+
 export const colors = {
-  primary: "#3B82F6",    // main blue
-  accent: "#1D4ED8",     // darker blue
-  bg: "#FFFFFF",
-  surface: "#F9FAFB",    // card / input background
-  divider: "#E5E7EB",    // line separators
-  text: "#111827",       // dark gray
-  subtext: "#6B7280",    // lighter gray
-  success: "#16A34A",    // green
-  danger: "#EF4444",     // red
+  light: {
+    background: "#FFFFFF",
+    text: "#111827",
+    textSecondary: "#6B7280",
+    primary: "#2563EB",
+    secondary: "#60A5FA",
+  },
+  dark: {
+    background: "#0D1117",
+    text: "#E5E7EB",
+    textSecondary: "#9CA3AF",
+    primary: "#3B82F6",
+    secondary: "#93C5FD",
+  },
 };
 
+// Spacing system (consistent with notifications.tsx)
 export const spacing = {
   xs: 4,
   s: 8,
@@ -19,9 +28,24 @@ export const spacing = {
   xl: 32,
 };
 
+// Font sizes
 export const fonts = {
-  h1: { fontSize: 22, fontWeight: "700", color: colors.text },
-  h2: { fontSize: 18, fontWeight: "600", color: colors.text },
-  body: { fontSize: 16, color: colors.text },
-  small: { fontSize: 13, color: colors.subtext },
+  sm: 14,
+  md: 16,
+  lg: 20,
+  xl: 24,
 };
+
+// Hook to get correct color theme automatically
+export const useTheme = () => {
+  const scheme = useColorScheme() || "light";
+  return {
+    colors: colors[scheme],
+    spacing,
+    fonts,
+    scheme,
+  };
+};
+
+// Default export for non-hook use
+export default { colors: colors.light, spacing, fonts };

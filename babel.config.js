@@ -1,9 +1,11 @@
-module.exports = function(api) {
+module.exports = function (api) {
   api.cache(true);
+
   return {
-    presets: ["babel-preset-expo"],
+    presets: ['babel-preset-expo'], // ✅ includes Expo Router support by default
     plugins: [
-      "react-native-reanimated/plugin", // 👈 must always be last
+      // 👇 Keep Reanimated plugin last
+      'react-native-reanimated/plugin',
     ],
   };
 };

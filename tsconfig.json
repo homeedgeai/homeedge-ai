@@ -1,17 +1,20 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true,
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
-    }
-  },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-  ]
+      "@/*": ["*"],               // 👈 add this line
+      "@app/*": ["app/*"],
+      "@components/*": ["components/*"],
+      "@assets/*": ["assets/*"],
+      "@src/*": ["src/*"],
+      "@lib/*": ["lib/*"],
+      "@hooks/*": ["hooks/*"]     // 👈 optional, but helps with hooks autocomplete
+    },
+    "jsx": "react-native",
+    "strict": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
 }

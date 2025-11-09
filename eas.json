@@ -1,59 +1,76 @@
 {
-  "cli": { "version": ">= 3.13.0" },
+  "cli": {
+    "version": ">= 10.0.0",
+    "appVersionSource": "remote",
+    "requireCommit": false
+  },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "node": "18.18.0",
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_ENV": "development"
+      },
+      "android": {
+        "gradleCommand": ":app:assembleDebug"
+      },
       "ios": {
         "simulator": false,
-        "image": "latest",
-        "buildConfiguration": "Debug",
-        "autoIncrement": false
-      },
-      "android": { "buildType": "apk" },
-      "env": {
-        "EXPO_USE_DEV_SERVER": "true",
-        "EXPO_PUBLIC_BACKEND_URL": "http://192.168.0.9:8000"
-      },
-      "cache": { "disabled": true }
+        "buildConfiguration": "Debug"
+      }
     },
-    "production": {
-      "distribution": "store",
-      "node": "18.18.0",
+    "adhoc": {
+      "distribution": "internal",
+      "channel": "adhoc",
+      "credentialsSource": "remote",
+      "env": {
+        "EXPO_PUBLIC_ENV": "release"
+      },
       "ios": {
         "simulator": false,
-        "image": "latest",
-        "autoIncrement": "buildNumber"
+        "buildConfiguration": "Release"
       },
-      "env": {
-        "EXPO_USE_DEV_SERVER": "false",
-        "NODE_OPTIONS": "--max-old-space-size=4096",
-        "EXPO_PUBLIC_BACKEND_URL": "https://api.homeedgeai.com"
-      },
-      "cache": { "disabled": false }
+      "android": {
+        "gradleCommand": ":app:bundleRelease"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "ios": { "simulator": false, "image": "latest" },
+      "channel": "preview",
+      "autoIncrement": true,
       "env": {
-        "EXPO_USE_DEV_SERVER": "true",
-        "EXPO_PUBLIC_BACKEND_URL": "http://armonmoore.local:8000"
+        "EXPO_PUBLIC_ENV": "staging"
       },
-      "cache": { "disabled": true }
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
+      }
     },
-    "internal": {
-      "distribution": "internal",
-      "node": "18.18.0",
-      "ios": { "simulator": false, "image": "latest", "autoIncrement": "buildNumber" },
-      "android": { "buildType": "apk" },
+    "production": {
+      "autoIncrement": true,
+      "distribution": "store",
+      "channel": "production",
       "env": {
-        "EXPO_USE_DEV_SERVER": "false",
-        "EXPO_PUBLIC_BACKEND_URL": "https://api.homeedgeai.com"
+        "EXPO_PUBLIC_ENV": "production"
       },
-      "cache": { "disabled": false }
+      "android": {
+        "gradleCommand": ":app:bundleRelease"
+      },
+      "ios": {
+        "simulator": false
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "vogelmeplz12@gmail.com",
+        "ascAppId": "6754081656"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./credentials/android-service-account.json"
+      }
     }
   }
-  /* NOTE: I removed the "submit" section that hard-coded your old Apple ID/Team.
-     We’ll set that up again after the new EAS project is linked. */
 }

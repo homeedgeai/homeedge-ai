@@ -1,32 +1,77 @@
 // utils/storage.ts
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const KEY = "ohai:listings";
+
 export type Listing = {
   id: string;
-  createdAt: number;
-  address: string;
-  price: string;
-  bedrooms: string;
-  bathrooms: string;
-  sqft: string;
-  description: string;
-  photoUri?: string | null;
+  title?: string;
+  address?: string;
+  price?: string | number;
+  description?: string;
+  image?: string;
+  coords?: { latitude: number; longitude: number };
+  createdAt?: string;
 };
 
-const LISTINGS_KEY = "oh:listings";
-
-export async function getListings(): Promise<Listing[]> {
-  const raw = await AsyncStorage.getItem(LISTINGS_KEY);
-  if (!raw) return [];
+/** Return all listings (newest first) */
+export const getListings = async (): Promise<Listing[]> => {
   try {
-    return JSON.parse(raw) as Listing[];
-  } catch {
+    const raw = await AsyncStorage.getItem(KEY);
+    const parsed: Listing[] = raw ? JSON.parse(raw) : [];
+    // newest first
+    return parsed.sort(
+      (a, b) =>
+        new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  } catch (e) {
+    console.log("getListings error:", e);
     return [];
   }
-}
+};
 
-export async function addListing(newListing: Listing) {
-  const all = await getListings();
-  const next = [newListing, ...all];
-  await AsyncStorage.setItem(LISTINGS_KEY, JSON.stringify(next));
-}
+/** Save a new listing (without coords by default) */
+export const saveListing = async (listing: Listing): Promise<Listing[]> => {
+  try {
+    const all = await getListings();
+    const newItem = { ...listing, createdAt: new Date().toISOString() };
+    const updated = [newItem, ...all];
+    await AsyncStorage.setItem(KEY, JSON.stringify(updated));
+    return updated;
+  } catch (e) {
+    console.log("saveListing error:", e);
+    return [];
+  }
+};
+
+/** Update a listing by id (e.g., to add coords when user taps Tag to Map) */
+export const updateListingById = async (
+  id: string,
+  patch: Partial<Listing>
+): Promise<Listing[]> => {
+  try {
+    const all = await getListings();
+    const updated = all.map((l) => (l.id === id ? { ...l, ...patch } : l));
+    await AsyncStorage.setItem(KEY, JSON.stringify(updated));
+    return updated;
+  } catch (e) {
+    console.log("updateListingById error:", e);
+    return [];
+  }
+};
+
+export const deleteListingById = async (id: string): Promise<Listing[]> => {
+  try {
+    const all = await getListings();
+    const updated = all.filter((l) => l.id !== id);
+    await AsyncStorage.setItem(KEY, JSON.stringify(updated));
+    return updated;
+  } catch (e) {
+    console.log("deleteListingById error:", e);
+    return [];
+  }
+};
+
+export const clearListings = async () => {
+  await AsyncStorage.removeItem(KEY);
+};
