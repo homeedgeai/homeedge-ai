@@ -84,10 +84,7 @@
 
     "extra": {
       "API_BASE": "http://192.168.0.14:8000",
-      "env": "development",
-      "eas": {
-        "projectId": "d4584ebc-2f95-4fd4-8317-3ade2b9b0d33"
-      }
+      "env": "development"
     }
   }
 }
