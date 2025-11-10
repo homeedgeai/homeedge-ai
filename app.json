@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "openhouse-ai",
-    "slug": "openhouse-ai",
+    "name": "HomeEdge AI",
+    "slug": "homeedge-ai",
     "owner": "devmoeee",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,28 +13,30 @@
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "org.openhouseai.app",
-      "buildNumber": "24",
+      "supportsTablet": false,
+      "bundleIdentifier": "org.homeedgeai.app",
+      "buildNumber": "26",
       "infoPlist": {
-        "NSCameraUsageDescription": "OpenHouse AI uses the camera to scan rooms and create 3D floor plans.",
-        "NSMicrophoneUsageDescription": "OpenHouse AI uses the microphone for video and audio capture.",
-        "NSPhotoLibraryAddUsageDescription": "Save captured images and floor plans to your library.",
-        "NSPhotoLibraryUsageDescription": "Select images for property listings and projects.",
-        "NSLocationWhenInUseUsageDescription": "Enhance floor plan accuracy with location data.",
-        "NSMotionUsageDescription": "Used for real-time 3D scanning and motion tracking.",
-        "UIBackgroundModes": [
-          "audio"
-        ],
+        "NSCameraUsageDescription": "HomeEdge AI uses the camera and LiDAR for room scanning and depth capture.",
+        "NSMicrophoneUsageDescription": "Used for ARKit scanning and depth processing.",
+        "NSPhotoLibraryAddUsageDescription": "Allows saving generated 3D floor plans to your photo library.",
+        "NSLocationWhenInUseUsageDescription": "Used for AR alignment during room scanning.",
+        "NSMotionUsageDescription": "Used to track device motion during AR scanning.",
+        "UIBackgroundModes": ["audio"],
+        "ARKit": true,
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "infoPlistStrings": {
+        "ARKitUnavailableMessage": "Your device does not support ARKit scanning."
+      },
+      "entitlements": {
+        "com.apple.developer.arkit": true
       }
     },
     "android": {
-      "package": "org.openhouseai.app",
+      "package": "org.homeedgeai.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -49,8 +51,6 @@
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.INTERNET"
       ]
     },
@@ -58,24 +58,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "OpenHouse AI needs access to your photo library to allow you to choose images."
-        }
-      ],
-      "expo-sensors",
       "expo-camera",
+      "expo-sensors",
       "expo-av",
+      "expo-file-system",
       "expo-media-library",
       "expo-font",
       "expo-router",
       "expo-asset",
       "expo-secure-store",
-      "expo-location",
-      "expo-file-system",
       "expo-screen-orientation",
-      "expo-dev-client"
+      "expo-dev-client",
+      "./plugins/with-depth-capture.js"
     ],
     "runtimeVersion": {
       "policy": "appVersion"
