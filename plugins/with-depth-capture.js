@@ -7,33 +7,37 @@ const {
 const fs = require("fs");
 const path = require("path");
 
+/**
+ * Copies DepthCaptureModule.swift from src-native/ios into the Xcode project
+ */
 const withCopySwift = (config) =>
   withDangerousMod(config, [
     "ios",
     async (cfg) => {
-      const projectRoot = cfg.modRequest.projectRoot;           // <-- REPO ROOT (correct)
-      const platformProjectRoot = cfg.modRequest.platformProjectRoot; // <-- GENERATED ios/
+      const projectRoot = cfg.modRequest.projectRoot;
+      const platformProjectRoot = cfg.modRequest.platformProjectRoot;
 
-      // SOURCE: from your committed repo
-      const src = path.join(projectRoot, "ios", "DepthCaptureModule.swift");
-      // DESTINATION: into the generated Xcode project
+      const src = path.join(projectRoot, "src-native", "ios", "DepthCaptureModule.swift");
       const dest = path.join(platformProjectRoot, "DepthCaptureModule.swift");
 
       if (!fs.existsSync(src)) {
         throw new Error(
           `[with-depth-capture] Missing file!\n` +
           `Expected: ${src}\n` +
-          `→ Commit ios/DepthCaptureModule.swift to your Git repo.\n` +
-          `   This file must be tracked by Git for EAS Build to see it.`
+          `→ Commit src-native/ios/DepthCaptureModule.swift to Git repo.\n` +
+          `   Check: https://github.com/homeedgeai/homeedge-ai/tree/main/src-native/ios`
         );
       }
 
       fs.copyFileSync(src, dest);
-      console.log("Copied DepthCaptureModule.swift → Xcode project");
+      console.log("Copied DepthCaptureModule.swift from src-native/ios → Xcode project");
       return cfg;
     },
   ]);
 
+/**
+ * Adds permissions to Info.plist
+ */
 const withCameraPermissions = (config) =>
   withInfoPlist(config, (cfg) => {
     cfg.modResults.NSCameraUsageDescription ||= "HomeEdge AI uses the camera and LiDAR to scan rooms and capture depth.";
@@ -44,6 +48,9 @@ const withCameraPermissions = (config) =>
     return cfg;
   });
 
+/**
+ * Links ARKit and sets deployment target
+ */
 const withARKit = (config) =>
   withXcodeProject(config, (cfg) => {
     const proj = cfg.modResults;
@@ -51,10 +58,13 @@ const withARKit = (config) =>
     if (!proj.hasFile(framework)) {
       proj.addFramework(framework);
       console.log("Linked ARKit.framework");
+    } else {
+      console.log("ARKit.framework already linked");
     }
 
-    for (const key in proj.pbxXCBuildConfigurationSection()) {
-      const item = proj.pbxXCBuildConfigurationSection()[key];
+    const configurations = proj.pbxXCBuildConfigurationSection();
+    for (const key in configurations) {
+      const item = configurations[key];
       if (item.buildSettings?.IPHONEOS_DEPLOYMENT_TARGET) {
         item.buildSettings.IPHONEOS_DEPLOYMENT_TARGET = "13.0";
       }
