@@ -1,24 +1,27 @@
 {
   "expo": {
     "name": "HomeEdge AI",
-    "slug": "openhouse-ai",
-    "owner": "homeedgeai",
+    "slug": "homeedgeai",
+    "owner": "homeedgedev",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "homeedgeai",
     "userInterfaceStyle": "light",
+
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
+
     "assetBundlePatterns": ["**/*"],
 
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.homeedgeai.app",
       "buildNumber": "29",
+      "deploymentTarget": "15.1",
       "infoPlist": {
         "NSCameraUsageDescription": "HomeEdge AI uses the camera and LiDAR to scan rooms and capture depth data for 3D floor plans.",
         "NSMicrophoneUsageDescription": "Used for ARKit ambient audio processing during scanning.",
@@ -30,7 +33,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
-        "com.apple.developer.arkit": true
+        // "com.apple.developer.arkit": true
       }
     },
 
@@ -73,10 +76,6 @@
       "./plugins/with-depth-capture.js"
     ],
 
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-
     "updates": {
       "enabled": true,
       "fallbackToCacheTimeout": 0
@@ -84,7 +83,10 @@
 
     "extra": {
       "API_BASE": "http://192.168.0.14:8000",
-      "env": "development"
+      "env": "development",
+      "eas": {
+        "projectId": "d4584ebc-2f95-4fd4-8317-3ade2b9b0d33"
+      }
     }
   }
 }
