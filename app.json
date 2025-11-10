@@ -18,13 +18,15 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.homeedgeai.app",
-      "buildNumber": "27",
+      "buildNumber": "28",
       "infoPlist": {
-        "NSCameraUsageDescription": "HomeEdge AI uses the camera and LiDAR for 3D room scanning and depth capture.",
-        "NSMicrophoneUsageDescription": "Used for ARKit scanning and depth processing.",
-        "NSPhotoLibraryAddUsageDescription": "Allows saving generated 3D floor plans to your photo library.",
-        "NSLocationWhenInUseUsageDescription": "Used for AR alignment during room scanning.",
-        "NSMotionUsageDescription": "Used to track device motion during AR scanning.",
+        "NSCameraUsageDescription": "HomeEdge AI uses the camera and LiDAR to scan rooms and capture depth data for 3D floor plans.",
+        "NSMicrophoneUsageDescription": "Used for ARKit ambient audio processing during scanning.",
+        "NSPhotoLibraryAddUsageDescription": "Save generated 3D floor plans and scans to your photo library.",
+        "NSLocationWhenInUseUsageDescription": "Used for AR world alignment and stable tracking during room scanning.",
+        "NSMotionUsageDescription": "Tracks device motion for accurate AR depth capture and LiDAR alignment.",
+        "UIBackgroundModes": ["audio"],
+        "ARKitUnavailableMessage": "Your device does not support ARKit scanning.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
