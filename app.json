@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "HomeEdge AI",
-    "slug": "openhouse-ai",
+    "slug": "homeedge-ai",
     "owner": "devmoeee",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,27 +14,24 @@
       "backgroundColor": "#000000"
     },
     "assetBundlePatterns": ["**/*"],
+
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.homeedgeai.app",
-      "buildNumber": "26",
+      "buildNumber": "27",
       "infoPlist": {
-        "NSCameraUsageDescription": "HomeEdge AI uses the camera and LiDAR for room scanning and depth capture.",
+        "NSCameraUsageDescription": "HomeEdge AI uses the camera and LiDAR for 3D room scanning and depth capture.",
         "NSMicrophoneUsageDescription": "Used for ARKit scanning and depth processing.",
         "NSPhotoLibraryAddUsageDescription": "Allows saving generated 3D floor plans to your photo library.",
         "NSLocationWhenInUseUsageDescription": "Used for AR alignment during room scanning.",
         "NSMotionUsageDescription": "Used to track device motion during AR scanning.",
-        "UIBackgroundModes": ["audio"],
-        "ARKit": true,
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "infoPlistStrings": {
-        "ARKitUnavailableMessage": "Your device does not support ARKit scanning."
       },
       "entitlements": {
         "com.apple.developer.arkit": true
       }
     },
+
     "android": {
       "package": "org.homeedgeai.app",
       "versionCode": 1,
@@ -54,9 +51,11 @@
         "android.permission.INTERNET"
       ]
     },
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "plugins": [
       "expo-camera",
       "expo-sensors",
@@ -71,13 +70,16 @@
       "expo-dev-client",
       "./plugins/with-depth-capture.js"
     ],
+
     "runtimeVersion": {
       "policy": "appVersion"
     },
+
     "updates": {
       "enabled": true,
       "fallbackToCacheTimeout": 0
     },
+
     "extra": {
       "API_BASE": "http://192.168.0.14:8000",
       "env": "development",
