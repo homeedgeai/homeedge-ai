@@ -4,7 +4,7 @@
     "slug": "openhouse-ai",
     "owner": "homeedgeai",
     "version": "1.0.0",
-    "orientation": peasant",
+    "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "homeedgeai",
     "userInterfaceStyle": "light",
