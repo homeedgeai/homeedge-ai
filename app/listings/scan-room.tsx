@@ -1,5 +1,5 @@
 // app/listings/scan-room.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,115 +10,85 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { NativeModules } from "react-native";
+import DepthCapture from "@/modules/depth-capture";
 
-const { DepthCapture } = NativeModules;
-
-const BACKEND = "ws://192.168.0.14:8000";
+const BACKEND_WS = "ws://192.168.0.14:8000";
 
 export default function ScanRoomScreen() {
   const router = useRouter();
   const [scanning, setScanning] = useState(false);
   const [frames, setFrames] = useState(0);
   const [status, setStatus] = useState("Ready");
-
-  const jobId = useMemo(() => `job_${Math.random().toString(36).slice(2, 10)}`, []);
   const wsRef = useRef<WebSocket | null>(null);
+  const jobId = useMemo(() => `job_${Math.random().toString(36).slice(2, 10)}`, []);
 
-  // WebSocket for frame count feedback
-  useEffect(() => {
-    if (!scanning) return;
-
-    const ws = new WebSocket(`${BACKEND}/ws/scan/${jobId}`);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log("WS connected:", jobId);
-      setStatus("Streaming to backend…");
-    };
-
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.frames !== undefined) setFrames(data.frames);
-        if (data.status) setStatus(data.status);
-      } catch {}
-    };
-
-    ws.onerror = (e) => console.log("[WS ERROR]", e);
-    ws.onclose = () => {
-      console.log("WS closed");
-      if (scanning) stopScan(true);
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [scanning, jobId]);
-
-  const startScan = () => {
+  const startScan = async () => {
     if (Platform.OS !== "ios") {
-      Alert.alert("Only iOS with LiDAR");
+      Alert.alert("Unsupported", "Depth scanning requires an iPhone with LiDAR.");
       return;
     }
 
-    if (!DepthCapture) {
-      Alert.alert("Native module not linked");
-      return;
+    try {
+      setScanning(true);
+      setStatus("Initializing ARKit...");
+      setFrames(0);
+
+      // Start native ARKit stream
+      await DepthCapture.start(jobId, BACKEND_WS);
+      setStatus("Streaming depth data...");
+      console.log("[DepthCapture] Started:", jobId);
+
+      // Optional WebSocket feedback (if your backend sends progress)
+      const ws = new WebSocket(`${BACKEND_WS}/ws/scan/${jobId}`);
+      wsRef.current = ws;
+
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.progress !== undefined) setFrames(data.progress);
+          if (data.status) setStatus(data.status);
+        } catch {}
+      };
+      ws.onerror = (err) => console.warn("WS error:", err.message);
+      ws.onclose = () => console.log("WS closed");
+
+    } catch (err: any) {
+      console.error("[DepthCapture] Error:", err);
+      Alert.alert("ARKit Error", err.message || "Unable to start depth capture");
+      stopScan();
     }
-
-    setScanning(true);
-    setFrames(0);
-    setStatus("Starting ARKit…");
-
-    DepthCapture.start(
-      jobId,
-      `${BACKEND}/ws/scan/${jobId}`,
-      () => {
-        console.log("DepthCapture STARTED");
-        setStatus("Scanning… Move slowly");
-      },
-      (code: string, message: string) => {
-        console.log("DepthCapture ERROR", code, message);
-        Alert.alert("ARKit Error", message);
-        stopScan();
-      }
-    );
   };
 
-  const stopScan = (auto = false) => {
-    if (!auto) console.log("User stopped scan");
-    setScanning(false);
-    setStatus("Processing on server…");
-
-    DepthCapture?.stop(
-      () => console.log("DepthCapture stopped"),
-      (err: any) => console.log("Stop error", err)
-    );
-
+  const stopScan = async () => {
+    console.log("[DepthCapture] Stopping...");
+    await DepthCapture.stop();
     wsRef.current?.close();
+    setScanning(false);
+    setStatus("Processing...");
 
-    // Navigate after delay
+    // Navigate to result screen after delay
     setTimeout(() => {
-      router.push(`/listings/result/${jobId}`);
-    }, 3000);
+      router.push({
+        pathname: "/listings/result",
+        params: { jobId },
+      });
+    }, 2500);
   };
 
   return (
     <View style={styles.container}>
-      {/* BLACK FULLSCREEN — NO CAMERA PREVIEW NEEDED */}
       <View style={StyleSheet.absoluteFill} />
-
-      {/* HUD */}
       <View style={styles.hud}>
         <Text style={styles.title}>
-          {scanning ? `${frames} frames • ${status}` : "Hold to Scan Room"}
+          {scanning
+            ? `${frames} frames • ${status}`
+            : "Hold to Scan Room"}
         </Text>
 
         <TouchableOpacity
           style={[styles.cta, scanning && styles.ctaStop]}
           onPressIn={startScan}
-          onPressOut={() => scanning && stopScan()}
+          onPressOut={stopScan}
           disabled={Platform.OS !== "ios"}
         >
           <Ionicons
@@ -132,7 +102,7 @@ export default function ScanRoomScreen() {
         </TouchableOpacity>
 
         {!scanning && Platform.OS !== "ios" && (
-          <Text style={styles.warning}>iOS + LiDAR required</Text>
+          <Text style={styles.warning}>Requires iPhone with LiDAR</Text>
         )}
       </View>
     </View>
@@ -140,7 +110,7 @@ export default function ScanRoomScreen() {
 }
 
 // ──────────────────────────────────────────────
-// STYLES
+// Styles
 // ──────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
