@@ -1,6 +1,6 @@
-# ----------------------------
+# ======================
 # Node / Expo / React Native
-# ----------------------------
+# ======================
 node_modules/
 .expo/
 .expo-shared/
@@ -8,7 +8,7 @@ npm-debug.*
 yarn-debug.log*
 yarn-error.log*
 
-# Metro bundler cache
+# Metro / Expo cache
 .expo/
 .expo-shared/
 .expo-cache/
@@ -23,23 +23,22 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# ----------------------------
+# ======================
 # iOS
-# ----------------------------
-# Ignore generated iOS build files
+# ======================
+# Ignore generated build files
 ios/*
 !ios/DepthCaptureModule.swift
 !ios/Podfile
 !ios/Podfile.lock
 
-# CocoaPods
 Pods/
 build/
 DerivedData/
 
-# ----------------------------
+# ======================
 # Android
-# ----------------------------
+# ======================
 android/
 *.keystore
 *.jks
@@ -47,9 +46,9 @@ android/
 .gradle/
 local.properties
 
-# ----------------------------
-# Expo
-# ----------------------------
+# ======================
+# Expo Web
+# ======================
 web-build/
 dist/
 .expo/
