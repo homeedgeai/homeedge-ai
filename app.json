@@ -30,7 +30,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
-        "com.apple.developer.arkit": true
+      "com.apple.developer.arkit": true
       }
     },
 
