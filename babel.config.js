@@ -2,10 +2,17 @@ module.exports = function (api) {
   api.cache(true);
 
   return {
-    presets: ['babel-preset-expo'], // ✅ includes Expo Router support by default
+    presets: ['babel-preset-expo'],
+
     plugins: [
-      // 👇 Keep Reanimated plugin last
-      'react-native-reanimated/plugin',
-    ],
+      // VisionCamera Frame Processor (safe even if not used yet)
+      [
+        'react-native-worklets-core/plugin', 
+        { enforce: 'pre' }
+      ],
+
+      // 👇 MUST stay last for reanimated to work correctly
+      'react-native-reanimated/plugin'
+    ]
   };
 };

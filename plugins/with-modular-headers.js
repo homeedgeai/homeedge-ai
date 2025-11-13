@@ -1,35 +1,41 @@
-const { withDangerousMod } = require('@expo/config-plugins');
-const fs = require('fs');
-const path = require('path');
+// plugins/with-modular-headers.js
+const {
+  withDangerousMod,
+} = require("@expo/config-plugins");
+const fs = require("fs");
+const path = require("path");
 
-const withModularHeaders = (config) => {
+module.exports = function withModularHeaders(config) {
   return withDangerousMod(config, [
-    'ios',
-    async (config) => {
-      const podfilePath = path.join(config.modRequest.projectRoot, 'ios', 'Podfile');
+    "ios",
+    (config) => {
+      const podfile = path.join(config.modRequest.platformProjectRoot, "Podfile");
 
-      if (fs.existsSync(podfilePath)) {
-        let contents = fs.readFileSync(podfilePath, 'utf-8');
+      let contents = fs.readFileSync(podfile, "utf-8");
 
-        if (!contents.includes('use_modular_headers!')) {
-          // Insert just after the 'require' line that Expo adds
-          contents = contents.replace(
-            /(require\s+File\.join[^\n]+)/,
-            '$1\nuse_modular_headers!' // Add below the require line
-          );
-
-          fs.writeFileSync(podfilePath, contents);
-          console.log('✅ Successfully added use_modular_headers! to Podfile');
-        } else {
-          console.log('ℹ️ use_modular_headers! already exists in Podfile');
-        }
-      } else {
-        console.warn('⚠️ Podfile not found — skipping modular header injection.');
+      // Add use_modular_headers! if not already set
+      if (!contents.includes("use_modular_headers!")) {
+        contents = contents.replace(
+          "use_frameworks!",
+          "use_frameworks!\n  use_modular_headers!"
+        );
       }
 
+      // Apply to specific pods (FirebaseCoreInternal, GoogleUtilities)
+      if (!contents.includes("modular_headers => true")) {
+        contents = contents.replace(
+          /pod ['"]FirebaseCoreInternal['"].*$/m,
+          `pod 'FirebaseCoreInternal', :modular_headers => true`
+        );
+
+        contents = contents.replace(
+          /pod ['"]GoogleUtilities['"].*$/m,
+          `pod 'GoogleUtilities', :modular_headers => true`
+        );
+      }
+
+      fs.writeFileSync(podfile, contents);
       return config;
     },
   ]);
 };
-
-module.exports = withModularHeaders;

@@ -1,24 +1,70 @@
 import React from "react";
-import { View, Text, StyleSheet, Platform } from "react-native";
+import { View, Text, StyleSheet, Platform, ScrollView } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 
 export default function Floorplan3D() {
   const { mesh_url } = useLocalSearchParams<{ mesh_url?: string }>();
+
+  const displayURL = mesh_url || "No 3D model generated yet.";
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>3D Preview (stub)</Text>
-      <Text style={styles.url}>{mesh_url || "No model created yet"}</Text>
-      <Text style={styles.note}>
-        {Platform.OS === "ios"
-          ? "When we add ARKit depth, we’ll export USDZ for native AR Quick Look."
-          : "On Android we’ll export GLB for Sceneform/ARCore."}
-      </Text>
+      <ScrollView contentContainerStyle={styles.inner}>
+        <Text style={styles.title}>3D Preview (Coming Soon)</Text>
+
+        <Text style={styles.urlLabel}>Mesh URL:</Text>
+        <Text style={styles.url}>{displayURL}</Text>
+
+        <View style={{ height: 20 }} />
+
+        <Text style={styles.note}>
+          {Platform.OS === "ios"
+            ? "When real LiDAR depth is integrated, you'll view a full 3D mesh here and place it in AR using ARKit."
+            : "On Android we will export GLB models for ARCore / Sceneform viewing."}
+        </Text>
+      </ScrollView>
     </View>
   );
 }
+
 const styles = StyleSheet.create({
-  container:{ flex:1, alignItems:"center", justifyContent:"center", backgroundColor:"#000", padding:24 },
-  title:{ color:"#fff", fontSize:20, fontWeight:"900", marginBottom:8 },
-  url:{ color:"#9ff", textAlign:"center", marginBottom:14 },
-  note:{ color:"#ccc", textAlign:"center" }
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
+    paddingHorizontal: 20,
+    paddingTop: 50,
+  },
+  inner: {
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  title: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "900",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  urlLabel: {
+    color: "#9ff",
+    fontWeight: "700",
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  url: {
+    color: "#fff",
+    fontSize: 14,
+    textAlign: "center",
+    backgroundColor: "#111",
+    padding: 10,
+    borderRadius: 8,
+    width: "100%",
+  },
+  note: {
+    color: "#ccc",
+    fontSize: 14,
+    marginTop: 20,
+    textAlign: "center",
+    lineHeight: 20,
+  },
 });

@@ -20,7 +20,11 @@ export default function ScanRoomScreen() {
   const [frames, setFrames] = useState(0);
   const [status, setStatus] = useState("Ready");
   const wsRef = useRef<WebSocket | null>(null);
-  const jobId = useMemo(() => `job_${Math.random().toString(36).slice(2, 10)}`, []);
+
+  const jobId = useMemo(
+    () => `job_${Math.random().toString(36).slice(2, 10)}`,
+    []
+  );
 
   const startScan = async () => {
     if (Platform.OS !== "ios") {
@@ -33,12 +37,12 @@ export default function ScanRoomScreen() {
       setStatus("Initializing ARKit...");
       setFrames(0);
 
-      // Start native ARKit stream
+      // Start native ARKit streaming
       await DepthCapture.start(jobId, BACKEND_WS);
       setStatus("Streaming depth data...");
       console.log("[DepthCapture] Started:", jobId);
 
-      // Optional WebSocket feedback (if your backend sends progress)
+      // Optional WebSocket feedback from backend
       const ws = new WebSocket(`${BACKEND_WS}/ws/scan/${jobId}`);
       wsRef.current = ws;
 
@@ -49,9 +53,9 @@ export default function ScanRoomScreen() {
           if (data.status) setStatus(data.status);
         } catch {}
       };
+
       ws.onerror = (err) => console.warn("WS error:", err.message);
       ws.onclose = () => console.log("WS closed");
-
     } catch (err: any) {
       console.error("[DepthCapture] Error:", err);
       Alert.alert("ARKit Error", err.message || "Unable to start depth capture");
@@ -62,14 +66,15 @@ export default function ScanRoomScreen() {
   const stopScan = async () => {
     console.log("[DepthCapture] Stopping...");
     await DepthCapture.stop();
+
     wsRef.current?.close();
     setScanning(false);
     setStatus("Processing...");
 
-    // Navigate to result screen after delay
+    // FIXED: navigate to the correct result screen
     setTimeout(() => {
       router.push({
-        pathname: "/listings/result",
+        pathname: "/listings/floorplan",
         params: { jobId },
       });
     }, 2500);
@@ -78,11 +83,10 @@ export default function ScanRoomScreen() {
   return (
     <View style={styles.container}>
       <View style={StyleSheet.absoluteFill} />
-      <View style={styles.hud}>
+
+      <View className="hud" style={styles.hud}>
         <Text style={styles.title}>
-          {scanning
-            ? `${frames} frames • ${status}`
-            : "Hold to Scan Room"}
+          {scanning ? `${frames} frames • ${status}` : "Hold to Scan Room"}
         </Text>
 
         <TouchableOpacity
@@ -110,8 +114,9 @@ export default function ScanRoomScreen() {
 }
 
 // ──────────────────────────────────────────────
-// Styles
+// Styles (unchanged except for spacing)
 // ──────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "HomeEdge AI",
+    "name": "OpenHouse AI",
     "slug": "homeedgeai",
     "owner": "homeedgedev",
     "version": "1.0.0",
+    "scheme": "homeedgeai",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "homeedgeai",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
 
     "splash": {
       "image": "./assets/splash.png",
@@ -15,85 +15,64 @@
       "backgroundColor": "#000000"
     },
 
+    "updates": {
+      "url": "https://u.expo.dev/4fb7e234-7db2-4e16-8fa0-4b1f8f68223e",
+      "fallbackToCacheTimeout": 0
+    },
+
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+
     "assetBundlePatterns": ["**/*"],
 
     "ios": {
+      "bundleIdentifier": "org.openhouseai.app",
+      "buildNumber": "39",
       "supportsTablet": false,
-      "bundleIdentifier": "org.homeedgeai.app",
-      "buildNumber": "30",
       "deploymentTarget": "15.1",
       "infoPlist": {
-        "NSCameraUsageDescription": "HomeEdge AI uses the camera and LiDAR to scan rooms and capture depth data for 3D floor plans.",
-        "NSMicrophoneUsageDescription": "Used for ARKit ambient audio processing during scanning.",
-        "NSPhotoLibraryAddUsageDescription": "Save generated 3D floor plans and scans to your photo library.",
-        "NSLocationWhenInUseUsageDescription": "Used for AR world alignment and stable tracking during room scanning.",
-        "NSMotionUsageDescription": "Tracks device motion for accurate AR depth capture and LiDAR alignment.",
-        "UIBackgroundModes": ["audio"],
-        "ARKitUnavailableMessage": "Your device does not support ARKit scanning.",
-        "ITSAppUsesNonExemptEncryption": false
+        "NSCameraUsageDescription": "OpenHouse AI uses the camera and LiDAR to scan rooms and create floor plans.",
+        "NSMicrophoneUsageDescription": "OpenHouse AI optionally records audio while scanning.",
+        "NSLocationWhenInUseUsageDescription": "Location is used to tag properties and improve scan accuracy.",
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
       }
     },
 
     "android": {
-      "package": "org.homeedgeai.app",
-      "versionCode": 2,
+      "package": "org.openhouseai.app",
+      "versionCode": 39,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
-      },
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.INTERNET"
-      ]
-    },
-
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-
-    "plugins": [
-      "expo-camera",
-      "expo-sensors",
-      "expo-av",
-      "expo-file-system",
-      "expo-media-library",
-      "expo-font",
-      "expo-router",
-      "expo-asset",
-      "expo-secure-store",
-      "expo-screen-orientation",
-      "expo-dev-client",
-      "expo-localization",
-      "expo-web-browser",
-      "./plugins/with-depth-capture.js",
-      "./plugins/with-modular-headers.js"
-    ],
-
-    "updates": {
-      "enabled": true,
-      "fallbackToCacheTimeout": 0
-    },
-
-    "extra": {
-      "API_BASE": "https://openhouse-ai-vercel.vercel.app",
-      "GOOGLE_MAPS_API_KEY": "AIzaSyDLgZnKDIhZz7OPeDaPx81b0FhhCZBtlcA",
-      "env": "production",
-      "FACEBOOK_APP_ID": "1828479501392776",
-      "FACEBOOK_APP_SECRET": "bc0f7d8a5cf9ba3965ecf0423acc1e22",
-      "eas": {
-        "projectId": "d4584ebc-2f95-4fd4-8317-3ade2b9b0d33"
       }
     },
 
-    "runtimeVersion": {
-      "policy": "appVersion"
+    "extra": {
+      "eas": {
+        "projectId": "d4584ebc-2f95-4f4d-8317-3ade2b9b0d33"
+      },
+      "API_BASE": "https://openhouse-ai-vercel.vercel.app",
+      "env": "production"
+    },
+
+    "plugins": [
+      "expo-router",
+
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "OpenHouse AI needs camera and LiDAR access to scan rooms and generate floor plans.",
+          "microphonePermissionText": "OpenHouse AI optionally uses the microphone while scanning."
+        }
+      ],
+
+      "expo-xr"
+    ],
+
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

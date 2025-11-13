@@ -11,15 +11,17 @@ import {
   Easing,
   TouchableOpacity,
 } from "react-native";
+
 import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebaseConfig";
 import { enableNetwork, disableNetwork } from "firebase/firestore";
 import NetInfo from "@react-native-community/netinfo";
 
-// Context Providers
+// Context Providers (all preserved)
 import { ThemeProvider } from "../src/context/ThemeContext";
 import { AppProvider } from "../src/context/AppContext";
 import { LeadsProvider } from "../src/context/LeadsContext";
@@ -30,17 +32,18 @@ import { PerformanceProvider } from "../src/context/PerformanceContext";
 export default function RootLayout() {
   const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState<any>(null);
+
   const router = useRouter();
   const segments = useSegments();
 
-  // 🔌 Offline state
+  // Offline state
   const [offline, setOffline] = useState(false);
   const [offlineSince, setOfflineSince] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const retryInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // ✅ Auth listener
+  // Firebase Auth listener
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (usr) => {
       console.log("🔥 Firebase Auth:", usr ? "Logged In" : "Logged Out");
@@ -50,7 +53,7 @@ export default function RootLayout() {
     return unsub;
   }, []);
 
-  // ✅ Force Firestore network on startup
+  // Force Firestore network on startup
   useEffect(() => {
     (async () => {
       try {
@@ -62,7 +65,7 @@ export default function RootLayout() {
     })();
   }, []);
 
-  // ⚡ Detect connection changes + manage retry logic
+  // Connectivity detection + retry logic
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(async (state) => {
       const isOffline = !(state.isConnected && state.isInternetReachable);
@@ -71,6 +74,7 @@ export default function RootLayout() {
       if (isOffline) {
         await disableNetwork(db);
         setOfflineSince(new Date().toLocaleTimeString());
+
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 400,
@@ -78,17 +82,17 @@ export default function RootLayout() {
           useNativeDriver: true,
         }).start();
 
-        // Start periodic retry
         if (!retryInterval.current) {
           retryInterval.current = setInterval(() => {
             console.log("🔁 Attempting reconnect...");
             handleRetry();
-          }, 8000); // every 8s
+          }, 8000);
         }
       } else {
         await enableNetwork(db);
         clearInterval(retryInterval.current as NodeJS.Timeout);
         retryInterval.current = null;
+
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 400,
@@ -96,28 +100,33 @@ export default function RootLayout() {
         }).start();
       }
     });
+
     return () => {
       unsubscribe();
       if (retryInterval.current) clearInterval(retryInterval.current);
     };
   }, []);
 
-  // 🔁 Manual retry handler
+  // Retry handler
   const handleRetry = async () => {
     if (retrying) return;
     setRetrying(true);
+
     try {
       await enableNetwork(db);
       const state = await NetInfo.fetch();
+
       if (state.isConnected && state.isInternetReachable) {
         setOffline(false);
         clearInterval(retryInterval.current as NodeJS.Timeout);
         retryInterval.current = null;
+
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }).start();
+
         console.log("✅ Reconnected successfully");
       } else {
         console.log("❌ Still offline");
@@ -129,10 +138,12 @@ export default function RootLayout() {
     }
   };
 
-  // 🚦 Auth routing
+  // Auth routing
   useEffect(() => {
     if (initializing) return;
+
     const inDrawer = segments[0] === "(drawer)";
+
     if (user) {
       if (!user.emailVerified) {
         Alert.alert("Email Not Verified", "Please verify your email before continuing.");
@@ -143,9 +154,9 @@ export default function RootLayout() {
     } else if (inDrawer) {
       router.replace("/login");
     }
-  }, [user, initializing, segments]);
+  }, [user, initializing, segments, router]);
 
-  // 🌀 Loading UI
+  // Initial loading screen
   if (initializing) {
     return (
       <View style={styles.loading}>
@@ -164,7 +175,7 @@ export default function RootLayout() {
               <ListingsProvider>
                 <CalendarProvider>
                   <PerformanceProvider>
-                    {/* 🚨 Smart Offline Banner */}
+                    {/* 🔥 Smart Offline Banner */}
                     <Animated.View
                       style={[
                         styles.offlineBanner,
@@ -182,9 +193,9 @@ export default function RootLayout() {
                       ]}
                     >
                       <Text style={styles.offlineText}>
-                        ⚠️ Offline Mode{" "}
-                        {offlineSince ? `(since ${offlineSince})` : ""}
+                        ⚠️ Offline Mode {offlineSince ? `(since ${offlineSince})` : ""}
                       </Text>
+
                       <TouchableOpacity
                         onPress={handleRetry}
                         style={styles.retryBtn}
@@ -196,7 +207,7 @@ export default function RootLayout() {
                       </TouchableOpacity>
                     </Animated.View>
 
-                    {/* App Navigator */}
+                    {/* Main App Navigation */}
                     <Stack screenOptions={{ headerShown: false }}>
                       <Stack.Screen name="login" />
                       <Stack.Screen name="signup" />
@@ -214,6 +225,7 @@ export default function RootLayout() {
 }
 
 /* ---------- Styles ---------- */
+
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
@@ -222,6 +234,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   loadingTxt: { color: "#374151", marginTop: 10 },
+
   offlineBanner: {
     position: "absolute",
     top: 0,
@@ -236,6 +249,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   offlineText: { color: "#fff", fontWeight: "700" },
+
   retryBtn: {
     marginTop: 4,
     backgroundColor: "rgba(255,255,255,0.15)",
