@@ -3,18 +3,38 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["*"],               // 👈 add this line
-      "@app/*": ["app/*"],
-      "@components/*": ["components/*"],
-      "@assets/*": ["assets/*"],
-      "@src/*": ["src/*"],
-      "@lib/*": ["lib/*"],
-      "@hooks/*": ["hooks/*"]     // 👈 optional, but helps with hooks autocomplete
+      "@/*": [
+        "*"
+      ],
+      "@app/*": [
+        "app/*"
+      ],
+      "@components/*": [
+        "components/*"
+      ],
+      "@assets/*": [
+        "assets/*"
+      ],
+      "@src/*": [
+        "src/*"
+      ],
+      "@lib/*": [
+        "lib/*"
+      ],
+      "@hooks/*": [
+        "hooks/*"
+      ]
     },
     "jsx": "react-native",
     "strict": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true
-  }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
 }

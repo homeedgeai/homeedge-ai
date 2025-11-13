@@ -1,166 +1,190 @@
-// app/listings/scan-room.tsx
-import React, { useMemo, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Platform,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import { useRouter } from "expo-router";
-import DepthCapture from "@/modules/depth-capture";
+import * as FileSystem from "expo-file-system";
+import DepthCapture from "../../modules/depth-capture"; // your native module wrapper
 
-const BACKEND_WS = "ws://192.168.0.14:8000";
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? "http://192.168.0.14:8000";
 
-export default function ScanRoomScreen() {
+export default function ScanRoom() {
   const router = useRouter();
-  const [scanning, setScanning] = useState(false);
-  const [frames, setFrames] = useState(0);
-  const [status, setStatus] = useState("Ready");
-  const wsRef = useRef<WebSocket | null>(null);
+  const { hasPermission, requestPermission } = useCameraPermission();
 
-  const jobId = useMemo(
-    () => `job_${Math.random().toString(36).slice(2, 10)}`,
-    []
-  );
+  // Detect best available camera (back camera)
+  const device = useCameraDevice("back", {
+    physicalDevices: ["ultra-wide-angle-camera", "wide-angle-camera"],
+  });
 
+  const cameraRef = useRef<Camera>(null);
+
+  const [isScanning, setIsScanning] = useState(false);
+  const [isLidarAvailable, setIsLidarAvailable] = useState(false);
+  const [framesCaptured, setFramesCaptured] = useState(0);
+  const [jobId, setJobId] = useState("");
+
+  // ---------- Detect if this device supports LiDAR ----------
+  useEffect(() => {
+    if (!device) return;
+    // VisionCamera flag (true for LiDAR iPhones)
+    const canDepth = device.supportsDepthCapture ?? false;
+
+    // Store that
+    setIsLidarAvailable(canDepth);
+  }, [device]);
+
+  // ---------- Ask for camera permission ----------
+  useEffect(() => {
+    (async () => {
+      if (!hasPermission) {
+        await requestPermission();
+      }
+    })();
+  }, [hasPermission]);
+
+  // ---------- START SCAN ----------
   const startScan = async () => {
-    if (Platform.OS !== "ios") {
-      Alert.alert("Unsupported", "Depth scanning requires an iPhone with LiDAR.");
+    if (!device) {
+      Alert.alert("Camera unavailable", "Back camera not found.");
       return;
     }
 
-    try {
-      setScanning(true);
-      setStatus("Initializing ARKit...");
-      setFrames(0);
+    if (!hasPermission) {
+      const ok = await requestPermission();
+      if (!ok.granted) return;
+    }
 
-      // Start native ARKit streaming
-      await DepthCapture.start(jobId, BACKEND_WS);
-      setStatus("Streaming depth data...");
-      console.log("[DepthCapture] Started:", jobId);
+    const newJob = `scan_${Date.now()}`;
+    setJobId(newJob);
+    setFramesCaptured(0);
 
-      // Optional WebSocket feedback from backend
-      const ws = new WebSocket(`${BACKEND_WS}/ws/scan/${jobId}`);
-      wsRef.current = ws;
+    setIsScanning(true);
 
-      ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.progress !== undefined) setFrames(data.progress);
-          if (data.status) setStatus(data.status);
-        } catch {}
-      };
-
-      ws.onerror = (err) => console.warn("WS error:", err.message);
-      ws.onclose = () => console.log("WS closed");
-    } catch (err: any) {
-      console.error("[DepthCapture] Error:", err);
-      Alert.alert("ARKit Error", err.message || "Unable to start depth capture");
-      stopScan();
+    // LIDAR MODE
+    if (isLidarAvailable) {
+      Alert.alert("LiDAR Enabled", "Using LiDAR mode for highest accuracy.");
+      try {
+        await DepthCapture.start(newJob, `${API_BASE}`);
+      } catch (e) {
+        console.error("LiDAR start failed:", e);
+        Alert.alert("LiDAR Error", "Falling back to RGB mode.");
+        setIsLidarAvailable(false);
+      }
+    } else {
+      Alert.alert(
+        "RGB Mode",
+        "This iPhone does not have LiDAR. Using enhanced RGB-only scanning."
+      );
     }
   };
 
+  // ---------- STOP SCAN ----------
   const stopScan = async () => {
-    console.log("[DepthCapture] Stopping...");
-    await DepthCapture.stop();
+    setIsScanning(false);
 
-    wsRef.current?.close();
-    setScanning(false);
-    setStatus("Processing...");
+    if (isLidarAvailable) {
+      await DepthCapture.stop();
+    }
 
-    // FIXED: navigate to the correct result screen
-    setTimeout(() => {
-      router.push({
-        pathname: "/listings/floorplan",
-        params: { jobId },
+    // navigate to result screen
+    router.replace(`/listings/generate?jobId=${jobId}`);
+  };
+
+  // ---------- RGB-ONLY FRAME PROCESSOR ----------
+  const frameProcessor = useCallback((frame) => {
+    "worklet";
+    if (!isLidarAvailable) {
+      // Encode frame to JPEG via native VisionCamera utilities
+      // This uses VisionCamera's built-in frame.toImage APIs or a plugin.
+      const jpeg = frame.toJPEG?.();
+      if (!jpeg) return;
+
+      runOnJS(sendRGBFrame)(jpeg);
+    }
+  }, [isLidarAvailable]);
+
+  // ---------- Sends RGB frame to backend ----------
+  const sendRGBFrame = async (jpegBuffer) => {
+    if (!isScanning || isLidarAvailable) return; // only RGB mode
+    try {
+      const b64 = Buffer.from(jpegBuffer).toString("base64");
+      await fetch(`${API_BASE}/ws/scan/${jobId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ frame: b64 }),
       });
-    }, 2500);
+      setFramesCaptured((n) => n + 1);
+    } catch (e) {
+      console.log("RGB frame send failed:", e);
+    }
   };
 
   return (
     <View style={styles.container}>
-      <View style={StyleSheet.absoluteFill} />
+      {device && (
+        <Camera
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={isScanning}
+          // Only enable depth if LiDAR available
+          enableDepthData={isLidarAvailable}
+          frameProcessor={!isLidarAvailable ? frameProcessor : undefined}
+          frameProcessorFps={4}
+        />
+      )}
 
-      <View className="hud" style={styles.hud}>
-        <Text style={styles.title}>
-          {scanning ? `${frames} frames • ${status}` : "Hold to Scan Room"}
+      <View style={styles.overlay}>
+        <Text style={styles.info}>
+          {isLidarAvailable ? "LiDAR Mode Active" : "RGB Mode Active"}
         </Text>
 
-        <TouchableOpacity
-          style={[styles.cta, scanning && styles.ctaStop]}
-          onPressIn={startScan}
-          onPressOut={stopScan}
-          disabled={Platform.OS !== "ios"}
-        >
-          <Ionicons
-            name={scanning ? "square" : "radio-button-on"}
-            size={28}
-            color="#fff"
-          />
-          <Text style={styles.ctaText}>
-            {scanning ? "Release to Stop" : "Hold to Start"}
-          </Text>
-        </TouchableOpacity>
+        {isScanning ? (
+          <TouchableOpacity style={styles.stopBtn} onPress={stopScan}>
+            <Text style={styles.stopText}>Stop Scan</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.startBtn} onPress={startScan}>
+            <Text style={styles.startText}>Start Scan</Text>
+          </TouchableOpacity>
+        )}
 
-        {!scanning && Platform.OS !== "ios" && (
-          <Text style={styles.warning}>Requires iPhone with LiDAR</Text>
+        {isScanning && (
+          <Text style={styles.frames}>{framesCaptured} frames captured</Text>
         )}
       </View>
     </View>
   );
 }
 
-// ──────────────────────────────────────────────
-// Styles (unchanged except for spacing)
-// ──────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  hud: {
+  container: { flex: 1, backgroundColor: "black" },
+  overlay: {
     position: "absolute",
-    bottom: 60,
-    left: 0,
-    right: 0,
+    bottom: 40,
+    width: "100%",
     alignItems: "center",
+    gap: 10,
   },
-  title: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  cta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#0a84ff",
-    borderRadius: 32,
-    paddingHorizontal: 28,
-    paddingVertical: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  ctaStop: {
-    backgroundColor: "#ff3b30",
-  },
-  ctaText: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 18,
-  },
-  warning: {
-    color: "#ff453a",
-    marginTop: 16,
+  info: {
+    color: "white",
+    fontSize: 16,
     fontWeight: "600",
+    marginBottom: 8,
   },
+  frames: { color: "white", fontSize: 14 },
+  startBtn: {
+    backgroundColor: "#2563EB",
+    paddingHorizontal: 30,
+    paddingVertical: 14,
+    borderRadius: 10,
+  },
+  startText: { color: "white", fontSize: 18, fontWeight: "600" },
+  stopBtn: {
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 30,
+    paddingVertical: 14,
+    borderRadius: 10,
+  },
+  stopText: { color: "white", fontSize: 18, fontWeight: "600" },
 });
