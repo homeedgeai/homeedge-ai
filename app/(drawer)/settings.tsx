@@ -1,199 +1,470 @@
-import { getProfile, Profile, saveProfile } from "@lib/profile";
-import { useTheme } from "@src/context/ThemeContext";
-import { colors, fonts, spacing } from "@src/theme";
-import { BlurView } from "expo-blur";
-import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Switch,
+  View,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  Image,
+  StyleSheet,
+  ScrollView,
+  Switch,
+  Alert,
+  Linking,
+  ActivityIndicator,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import * as ImagePicker from "expo-image-picker";
+import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
+import * as Updates from "expo-updates";
+import * as Application from "expo-application";
+import * as FileSystem from "expo-file-system";
+import * as Localization from "expo-localization";
+import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  enableNetwork,
+} from "firebase/firestore";
+import { auth, db } from "../../firebaseConfig";
+import { signOut, updatePassword } from "firebase/auth";
 
 export default function SettingsScreen() {
-  const { theme, toggleTheme } = useTheme();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [pushEnabled, setPushEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [profile, setProfile] = useState({ name: "", email: "", avatar: "" });
+  const [themeDark, setThemeDark] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [language, setLanguage] = useState(Localization.locale || "en");
+  const [availableLangs, setAvailableLangs] = useState<string[]>(["en"]);
+  const [savingLang, setSavingLang] = useState(false);
+
+  /** 🧠 Load Profile with Firestore network check */
+  const loadProfile = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Not logged in", "Please sign in to edit your profile.");
+      return;
+    }
+
+    setSyncing(true);
+    setLoading(true);
+
+    try {
+      const state = await NetInfo.fetch();
+      if (!state.isConnected || !state.isInternetReachable) {
+        Alert.alert("Offline", "You're currently offline. Try again when connected.");
+        return;
+      }
+
+      // Try enabling Firestore
+      try {
+        await enableNetwork(db);
+      } catch (err) {
+        console.log("⚠️ Firestore already online:", err?.message);
+      }
+
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) {
+        const data = snap.data();
+        setProfile({
+          name: data.name || user.displayName || "",
+          email: user.email || "",
+          avatar: data.avatar || user.photoURL || "",
+        });
+      } else {
+        setProfile({
+          name: user.displayName || "",
+          email: user.email || "",
+          avatar: user.photoURL || "",
+        });
+      }
+    } catch (err: any) {
+      console.error("Profile load error:", err);
+      if (err.message?.includes("offline")) {
+        Alert.alert("Network Error", "Firestore is still offline — retrying in 3 seconds...");
+        setTimeout(loadProfile, 3000);
+      } else {
+        Alert.alert("Error", "Failed to load profile.");
+      }
+    } finally {
+      setSyncing(false);
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
+    loadProfile();
+
+    // Safe localization setup
+    try {
+      const langs = Localization.getLocales()
+        ?.map((l) => l.languageCode)
+        .filter(Boolean) as string[];
+      setAvailableLangs([...new Set(langs.length ? langs : ["en"])]);
+    } catch (e) {
+      console.log("Localization error:", e);
+      setAvailableLangs(["en"]);
+    }
+  }, []);
+
+  /** 🔔 Notifications setup */
+  useEffect(() => {
     (async () => {
-      const data = await getProfile();
-      setProfile(data);
+      const settings = await Notifications.getPermissionsAsync();
+      setNotificationsEnabled(
+        settings.granted ||
+          settings.ios?.status ===
+            Notifications.IosAuthorizationStatus.PROVISIONAL
+      );
     })();
   }, []);
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
+  const toggleNotifications = async () => {
+    if (notificationsEnabled) {
+      setNotificationsEnabled(false);
+      return;
+    }
+    const { status } = await Notifications.requestPermissionsAsync();
+    setNotificationsEnabled(status === "granted");
+    if (status !== "granted")
+      Alert.alert("Notifications disabled", "Permission not granted.");
+  };
+
+  /** 🖼 Avatar picker */
+  const pickAvatar = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.8,
     });
-    if (!result.canceled) {
-      setProfile((p) =>
-        p ? { ...p, avatar: result.assets[0].uri } : { name: "", avatar: result.assets[0].uri }
+    if (res.canceled) return;
+    setProfile({ ...profile, avatar: res.assets[0].uri });
+  };
+
+  /** 💾 Save Profile */
+  const saveProfile = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    if (!profile.name.trim()) {
+      Alert.alert("Name required");
+      return;
+    }
+    try {
+      setSaving(true);
+      let avatarUrl = profile.avatar;
+      if (avatarUrl && avatarUrl.startsWith("file://")) {
+        const storage = getStorage();
+        const refPath = ref(storage, `avatars/${user.uid}.jpg`);
+        const blob = await (await fetch(profile.avatar)).blob();
+        await uploadBytes(refPath, blob);
+        avatarUrl = await getDownloadURL(refPath);
+      }
+      await updateDoc(doc(db, "users", user.uid), {
+        name: profile.name.trim(),
+        avatar: avatarUrl,
+      });
+      await Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success
       );
+      Alert.alert("✅ Profile Updated");
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Could not update your profile.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const save = async () => {
-    if (profile) {
-      await saveProfile(profile); // ✅ Persist to AsyncStorage
-      alert("✅ Profile saved!");
+  /** 🔐 Account Actions */
+  const handleChangePassword = async () => {
+    const user = auth.currentUser;
+    if (!user) return Alert.alert("Not logged in");
+    Alert.prompt("Change Password", "Enter your new password", async (text) => {
+      if (!text) return;
+      try {
+        await updatePassword(user, text);
+        Alert.alert("✅ Password updated successfully.");
+      } catch (err: any) {
+        Alert.alert("Error", err.message);
+      }
+    });
+  };
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    Alert.alert("Signed out", "You’ve been signed out.");
+  };
+
+  const handleDeleteAccount = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    Alert.alert("Delete Account?", "This action cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteDoc(doc(db, "users", user.uid));
+            await user.delete();
+            Alert.alert("Account deleted.");
+          } catch (e: any) {
+            Alert.alert("Error deleting account.", e.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  /** 🧹 Clear cache / Language */
+  const clearCache = async () => {
+    try {
+      await FileSystem.deleteAsync(FileSystem.cacheDirectory || "");
+      Alert.alert("Cache Cleared ✅");
+    } catch {
+      Alert.alert("Error", "Failed to clear cache.");
     }
   };
 
-  if (!profile) return <Text style={{ padding: spacing.m }}>Loading…</Text>;
+  const changeLanguage = async (lang: string) => {
+    try {
+      setSavingLang(true);
+      await AsyncStorage.setItem("appLanguage", lang);
+      setLanguage(lang);
+      Alert.alert("Language updated", `App will use: ${lang}`);
+    } finally {
+      setSavingLang(false);
+    }
+  };
+
+  const appVersion = Application.nativeApplicationVersion || "1.0.0";
+
+  if (loading)
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme === "dark" ? "#000" : "#f2f2f7" }}>
-      <ScrollView contentContainerStyle={{ padding: spacing.m, paddingBottom: 80 }}>
+    <LinearGradient colors={["#FFFFFF", "#EEF4FF"]} style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Settings</Text>
 
-        {/* Appearance */}
-        <BlurView intensity={70} tint={theme === "dark" ? "dark" : "light"} style={styles.card}>
-          <Text style={styles.sectionTitle}>Appearance</Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>Dark Mode</Text>
-            <Switch value={theme === "dark"} onValueChange={toggleTheme} />
-          </View>
-        </BlurView>
-
-        {/* Profile */}
-        <BlurView intensity={70} tint={theme === "dark" ? "dark" : "light"} style={styles.card}>
-          <Text style={styles.sectionTitle}>Profile</Text>
-          <View style={styles.row}>
+        {/* 👤 Profile */}
+        <Card title="Profile">
+          <TouchableOpacity style={styles.avatarWrap} onPress={pickAvatar}>
             {profile.avatar ? (
               <Image source={{ uri: profile.avatar }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarTxt}>
-                  {profile.name
-                    ? profile.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .toUpperCase()
-                    : "U"}
-                </Text>
+                <Ionicons name="person" size={40} color="#2563EB" />
               </View>
             )}
-            <TouchableOpacity onPress={pickImage}>
-              <Text style={styles.link}>Change Avatar</Text>
-            </TouchableOpacity>
-          </View>
+            <Text style={styles.changeTxt}>Change Photo</Text>
+          </TouchableOpacity>
+
           <TextInput
             style={styles.input}
-            placeholder="Your Name"
-            placeholderTextColor={colors.subtext}
             value={profile.name}
             onChangeText={(t) => setProfile({ ...profile, name: t })}
+            placeholder="Your Name"
           />
-        </BlurView>
+          <TextInput
+            style={[styles.input, { opacity: 0.6 }]}
+            value={profile.email}
+            editable={false}
+          />
 
-        {/* Notifications */}
-        <BlurView intensity={70} tint={theme === "dark" ? "dark" : "light"} style={styles.card}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>Push Notifications</Text>
-            <Switch value={pushEnabled} onValueChange={setPushEnabled} />
+          <TouchableOpacity
+            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+            onPress={saveProfile}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveTxt}>Save Changes</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.syncBtn, syncing && { opacity: 0.7 }]}
+            onPress={loadProfile}
+            disabled={syncing}
+          >
+            {syncing ? (
+              <ActivityIndicator color="#2563EB" />
+            ) : (
+              <Text style={styles.syncTxt}>Sync from Cloud</Text>
+            )}
+          </TouchableOpacity>
+        </Card>
+
+        {/* ⚙️ Preferences */}
+        <Card title="App Preferences">
+          <Toggle
+            label="Dark Mode"
+            value={themeDark}
+            onValueChange={() => setThemeDark(!themeDark)}
+          />
+          <Toggle
+            label="Notifications"
+            value={notificationsEnabled}
+            onValueChange={toggleNotifications}
+          />
+
+          <Text style={styles.rowTxt}>Language</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginTop: 8 }}
+          >
+            {availableLangs.map((lang) => (
+              <TouchableOpacity
+                key={lang}
+                onPress={() => changeLanguage(lang)}
+                style={[
+                  styles.langBtn,
+                  {
+                    backgroundColor:
+                      language && language.startsWith(lang)
+                        ? "#2563EB"
+                        : "#E5E7EB",
+                  },
+                ]}
+              >
+                {savingLang && language === lang ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text
+                    style={{
+                      color:
+                        language && language.startsWith(lang)
+                          ? "#fff"
+                          : "#111",
+                      fontWeight: "600",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {lang}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Card>
+
+        {/* 🔐 Account */}
+        <Card title="Account">
+          <Row icon="key-outline" label="Change Password" onPress={handleChangePassword} />
+          <Row icon="log-out-outline" label="Sign Out" color="#EF4444" onPress={handleSignOut} />
+          <Row icon="trash-outline" label="Delete Account" color="#EF4444" onPress={handleDeleteAccount} />
+        </Card>
+
+        {/* 📜 Legal */}
+        <Card title="Privacy & Legal">
+          <Row icon="document-text-outline" label="Terms of Service" onPress={() => Linking.openURL("https://homeedgeai.com/terms")} />
+          <Row icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => Linking.openURL("https://homeedgeai.com/privacy")} />
+        </Card>
+
+        {/* 🧰 System */}
+        <Card title="System & Info">
+          <Row icon="trash-bin-outline" label="Clear Cache" onPress={clearCache} />
+          <Row icon="refresh-outline" label="Restart App" onPress={() => Updates.reloadAsync()} />
+          <View style={styles.versionWrap}>
+            <Text style={styles.versionTxt}>Version {appVersion}</Text>
           </View>
-        </BlurView>
-
-        {/* Legal */}
-        <BlurView intensity={70} tint={theme === "dark" ? "dark" : "light"} style={styles.card}>
-          <Text style={styles.sectionTitle}>Legal</Text>
-          <TouchableOpacity style={styles.linkRow}>
-            <Text style={styles.link}>Terms of Service</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.linkRow}>
-            <Text style={styles.link}>Privacy Policy</Text>
-          </TouchableOpacity>
-        </BlurView>
-
-        {/* Save Button */}
-        <TouchableOpacity style={styles.saveBtn} onPress={save}>
-          <Text style={styles.saveTxt}>Save Changes</Text>
-        </TouchableOpacity>
-
-        {/* Footer Logo */}
-        <View style={styles.footerWrap}>
-          <Image
-            source={require("@assets/images/logo.png")}
-            style={styles.footerLogo}
-            resizeMode="contain"
-          />
-          <Text style={styles.footerBrand}>[YourNewBrandName]</Text>
-        </View>
+        </Card>
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
-  title: { ...fonts.h1, marginBottom: spacing.l },
-  card: {
-    borderRadius: 16,
-    overflow: "hidden",
-    marginBottom: spacing.l,
-    padding: spacing.m,
-  },
-  sectionTitle: {
-    ...fonts.small,
-    marginBottom: spacing.s,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.m,
-  },
-  label: { ...fonts.body },
-  link: { color: colors.primary, fontWeight: "600" },
-  linkRow: { paddingVertical: spacing.s },
+/* ---------- Components ---------- */
+function Card({ title, children }: any) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+function Toggle({ label, value, onValueChange }: any) {
+  return (
+    <View style={styles.toggleRow}>
+      <Text style={styles.rowTxt}>{label}</Text>
+      <Switch value={value} onValueChange={onValueChange} />
+    </View>
+  );
+}
+function Row({ icon, label, onPress, color = "#2563EB" }: any) {
+  return (
+    <TouchableOpacity style={styles.rowBtn} onPress={onPress}>
+      <Ionicons name={icon} size={20} color={color} />
+      <Text style={[styles.rowTxt, { color }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
 
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginRight: spacing.m,
-    backgroundColor: colors.divider,
+/* ---------- Styles ---------- */
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  scroll: { padding: 20, paddingBottom: 100 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  title: { fontSize: 30, fontWeight: "800", color: "#111827", marginBottom: 16, textAlign: "center" },
+  card: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
+  cardTitle: { fontWeight: "700", fontSize: 18, marginBottom: 12, color: "#1F2937" },
+  avatarWrap: { alignItems: "center", marginBottom: 16 },
+  avatar: { width: 100, height: 100, borderRadius: 50 },
   avatarPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginRight: spacing.m,
-    backgroundColor: colors.divider,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#E5E7EB",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarTxt: { ...fonts.h2, color: colors.subtext },
-
+  changeTxt: { color: "#2563EB", marginTop: 8 },
   input: {
-    borderRadius: 12,
-    padding: spacing.m,
-    marginTop: spacing.s,
-    backgroundColor: colors.surface,
-    color: colors.text,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    fontSize: 16,
+    backgroundColor: "#F9FAFB",
   },
-
-  saveBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: spacing.m,
+  saveBtn: { backgroundColor: "#2563EB", borderRadius: 10, alignItems: "center", padding: 14, marginTop: 4 },
+  saveTxt: { color: "#fff", fontWeight: "700" },
+  syncBtn: {
+    borderWidth: 1,
+    borderColor: "#2563EB",
+    borderRadius: 10,
+    paddingVertical: 14,
     alignItems: "center",
-    marginTop: spacing.l,
+    width: "100%",
+    marginTop: 10,
   },
-  saveTxt: { color: "#fff", fontWeight: "700", fontSize: 16 },
-
-  footerWrap: { marginTop: spacing.l, alignItems: "center" },
-  footerLogo: { height: 40, width: 140, opacity: 0.9 },
-  footerBrand: { fontSize: 14, color: "#6B7280", marginTop: 4, fontWeight: "600" },
+  syncTxt: { color: "#2563EB", fontWeight: "700", fontSize: 16 },
+  rowBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
+  rowTxt: { fontSize: 15, fontWeight: "500", color: "#111827", marginLeft: 8 },
+  toggleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10 },
+  langBtn: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
+  versionWrap: { alignItems: "center", marginTop: 10 },
+  versionTxt: { color: "#6B7280", fontSize: 13 },
 });

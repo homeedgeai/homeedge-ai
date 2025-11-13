@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="HomeEdge Ai - Realtor analytics and property management dashboard" />
+  <title>HomeEdge Ai</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f8f9fb;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      color: #333;
+    }
+
+    h1 {
+      color: #1a73e8;
+      margin-bottom: 10px;
+    }
+
+    p {
+      color: #555;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background-color: #1877f2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #145dbf;
+    }
+
+    footer {
+      position: absolute;
+      bottom: 20px;
+      font-size: 13px;
+      color: #888;
+    }
+
+    .logo {
+      width: 120px;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+
+<body>
+  <img src="https://finalhomeedge.web.app/logo.png" alt="HomeEdge Ai Logo" class="logo" onerror="this.style.display='none'"/>
+  <h1>Welcome to HomeEdge Ai</h1>
+  <p>Login securely to access your realtor dashboard and manage listings.</p>
+
+  <!-- Facebook Login Button -->
+  <button onclick="facebookLogin()">Login with Facebook</button>
+
+  <footer>© 2025 HomeEdge Ai</footer>
+
+  <!-- Facebook SDK Setup -->
+  <script>
+    window.fbAsyncInit = function() {
+      FB.init({
+        appId      : '1828479501392776',  // Your Meta App ID
+        cookie     : true,
+        xfbml      : true,
+        version    : 'v19.0'              // Latest API version
+      });
+      FB.AppEvents.logPageView();   
+    };
+
+    (function(d, s, id){
+       var js, fjs = d.getElementsByTagName(s)[0];
+       if (d.getElementById(id)) {return;}
+       js = d.createElement(s); js.id = id;
+       js.src = "https://connect.facebook.net/en_US/sdk.js";
+       fjs.parentNode.insertBefore(js, fjs);
+     }(document, 'script', 'facebook-jssdk'));
+
+    function facebookLogin() {
+      FB.login(function(response) {
+        if (response.status === 'connected') {
+          console.log('✅ Logged in:', response);
+          FB.api('/me', {fields: 'name,email'}, function(userInfo) {
+            console.log('👤 User Info:', userInfo);
+            alert(`Welcome ${userInfo.name}!`);
+          });
+        } else {
+          console.log('❌ Login canceled or not authorized');
+          alert('Login failed or was canceled.');
+        }
+      }, {scope: 'public_profile,email'});
+    }
+  </script>
+</body>
+</html>

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// app/(drawer)/calendar.tsx
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,55 +10,112 @@ import {
 } from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import Toast from "react-native-toast-message";
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  getFirestore,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
 
 type EventType = "meeting" | "sold" | "reminder" | "custom";
 const EVENTS_KEY = "ohai:events";
+const FIREBASE_USER_ID = "demoUser123"; // Replace with real user auth later
 
 export default function CalendarScreen() {
   const router = useRouter();
   const [events, setEvents] = useState<Record<string, EventType[]>>({});
   const [selectedDate, setSelectedDate] = useState<string>("");
 
-  // 🔄 Load events from storage
+  // 🔄 Load events from local + Firebase
+  const loadEvents = async () => {
+    try {
+      // 1. local cache
+      const localRaw = await AsyncStorage.getItem(EVENTS_KEY);
+      if (localRaw) setEvents(JSON.parse(localRaw));
+
+      // 2. Firestore
+      const ref = doc(db, "events", FIREBASE_USER_ID);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data?.records) setEvents(data.records);
+        await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(data.records)); // cache it
+      }
+    } catch (e) {
+      console.warn("Failed to load events", e);
+    }
+  };
+
+  // Load on mount
   useEffect(() => {
-    (async () => {
-      const raw = await AsyncStorage.getItem(EVENTS_KEY);
-      if (raw) setEvents(JSON.parse(raw));
-    })();
+    loadEvents();
   }, []);
 
-  // 💾 Save events on change
+  // 💾 Save events (local + Firebase)
+  const saveEvents = async (newEvents: Record<string, EventType[]>) => {
+    try {
+      await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(newEvents));
+      await setDoc(doc(db, "events", FIREBASE_USER_ID), { records: newEvents });
+    } catch (e) {
+      console.warn("Failed to save events", e);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(events));
-    })();
+    saveEvents(events);
   }, [events]);
+
+  // 🔁 Reload when returning from other screens
+  useFocusEffect(
+    useCallback(() => {
+      loadEvents();
+    }, [])
+  );
 
   const handleDayPress = (day: DateData) => setSelectedDate(day.dateString);
 
-  const addEvent = (type: EventType) => {
+  const addEvent = async (type: EventType) => {
     if (!selectedDate) return;
-    setEvents((prev) => ({
-      ...prev,
-      [selectedDate]: [...(prev[selectedDate] || []), type],
-    }));
+    const updated = {
+      ...events,
+      [selectedDate]: [...(events[selectedDate] || []), type],
+    };
+    setEvents(updated);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Toast.show({
+      type: "success",
+      text1: `${type.charAt(0).toUpperCase() + type.slice(1)} added`,
+      position: "bottom",
+    });
   };
 
-  const clearEvents = () => {
+  const clearEvents = async () => {
     if (!selectedDate) return;
-    setEvents((prev) => {
-      const updated = { ...prev };
-      delete updated[selectedDate];
-      return updated;
+    const updated = { ...events };
+    delete updated[selectedDate];
+    setEvents(updated);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Toast.show({
+      type: "info",
+      text1: "All events cleared",
+      position: "bottom",
     });
   };
 
   const markedDates = Object.keys(events).reduce((acc, date) => {
-    acc[date] = { marked: true, dotColor: "#007AFF" };
+    const eventCount = events[date].length;
+    acc[date] = {
+      marked: true,
+      dotColor: eventCount > 2 ? "#FCD34D" : "#007AFF",
+    };
     return acc;
   }, {} as Record<string, any>);
 
@@ -69,12 +127,13 @@ export default function CalendarScreen() {
       end={{ x: 1, y: 1 }}
     >
       <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Calendar</Text>
           <TouchableOpacity
             onPress={() => {
               if (router?.canGoBack?.()) router.back();
-              else router?.push?.("/");
+              else router?.push?.("/(drawer)");
             }}
             style={styles.backBtn}
           >
@@ -83,6 +142,7 @@ export default function CalendarScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Calendar */}
         <View style={styles.calendarWrap}>
           <Calendar
             theme={{
@@ -91,7 +151,7 @@ export default function CalendarScreen() {
               textSectionTitleColor: "#6B7280",
               selectedDayBackgroundColor: "#007AFF",
               selectedDayTextColor: "#fff",
-              todayTextColor: "#007AFF",
+              todayTextColor: "#2563EB",
               dayTextColor: "#111827",
               arrowColor: "#007AFF",
               monthTextColor: "#111827",
@@ -116,15 +176,14 @@ export default function CalendarScreen() {
           />
         </View>
 
+        {/* Event Details */}
         {selectedDate && (
           <BlurView
             intensity={Platform.OS === "ios" ? 40 : 80}
             tint="light"
             style={styles.card}
           >
-            <Text style={styles.subTitle}>
-              {selectedDate} — Your Events
-            </Text>
+            <Text style={styles.subTitle}>{selectedDate} — Your Events</Text>
 
             <View style={styles.btnRow}>
               <EventButton type="meeting" onPress={() => addEvent("meeting")} />
@@ -151,6 +210,8 @@ export default function CalendarScreen() {
           </BlurView>
         )}
       </ScrollView>
+
+      <Toast />
     </LinearGradient>
   );
 }
@@ -177,10 +238,7 @@ const pillColors: Record<EventType, any> = {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    paddingTop: 60,
-  },
+  root: { flex: 1, paddingTop: 60 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -188,11 +246,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 10,
   },
-  title: {
-    fontSize: 34,
-    fontWeight: "700",
-    color: "#111827",
-  },
+  title: { fontSize: 34, fontWeight: "700", color: "#111827" },
   backBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -201,11 +255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  backText: {
-    color: "#007AFF",
-    fontWeight: "600",
-    marginLeft: 4,
-  },
+  backText: { color: "#007AFF", fontWeight: "600", marginLeft: 4 },
   calendarWrap: {
     borderRadius: 16,
     overflow: "hidden",
@@ -222,38 +272,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
   },
-  subTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 12,
-    color: "#111827",
-  },
-  btnRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 12,
-  },
-  addBtn: {
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  addTxt: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-  eventList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 4,
-  },
-  eventPill: {
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
+  subTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12, color: "#111827" },
+  btnRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  addBtn: { borderRadius: 16, paddingVertical: 8, paddingHorizontal: 14 },
+  addTxt: { color: "#fff", fontWeight: "600" },
+  eventList: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
+  eventPill: { borderRadius: 14, paddingHorizontal: 12, paddingVertical: 5 },
   eventTxt: { color: "#fff", fontSize: 13, fontWeight: "500" },
   clearBtn: {
     backgroundColor: "#EF4444",
