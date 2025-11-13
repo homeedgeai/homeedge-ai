@@ -2,9 +2,9 @@
   "cli": {
     "version": ">= 10.0.0",
     "appVersionSource": "remote",
-    "requireCommit": false
+    "requireCommit": false,
+    "promptToConfigurePushNotifications": false
   },
-
   "build": {
     "development": {
       "developmentClient": true,
@@ -23,7 +23,6 @@
         "credentialsSource": "remote"
       }
     },
-
     "adhoc": {
       "distribution": "internal",
       "channel": "adhoc",
@@ -40,7 +39,6 @@
         "gradleCommand": ":app:bundleRelease"
       }
     },
-
     "preview": {
       "distribution": "internal",
       "channel": "preview",
@@ -56,7 +54,6 @@
         "gradleCommand": ":app:bundleRelease"
       }
     },
-
     "production": {
       "autoIncrement": true,
       "distribution": "store",
@@ -74,7 +71,6 @@
       }
     }
   },
-
   "submit": {
     "production": {
       "ios": {
