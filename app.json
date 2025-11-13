@@ -26,10 +26,14 @@
         "NSCameraUsageDescription": "HomeEdge AI uses the camera and LiDAR to scan rooms and capture depth data for 3D floor plans.",
         "NSMicrophoneUsageDescription": "Used for ARKit ambient audio processing during scanning.",
         "NSPhotoLibraryAddUsageDescription": "Save generated 3D floor plans and scans to your photo library.",
-        "NSLocationWhenInUseUsageDescription": "Used for location tracking and AR world alignment.",
+        "NSLocationWhenInUseUsageDescription": "Used for AR world alignment and stable tracking during room scanning.",
         "NSMotionUsageDescription": "Tracks device motion for accurate AR depth capture and LiDAR alignment.",
+        "UIBackgroundModes": ["audio"],
         "ARKitUnavailableMessage": "Your device does not support ARKit scanning.",
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.developer.arkit": true
       }
     },
 
@@ -84,10 +88,14 @@
       "GOOGLE_MAPS_API_KEY": "AIzaSyDLgZnKDIhZz7OPeDaPx81b0FhhCZBtlcA",
       "env": "production",
       "FACEBOOK_APP_ID": "1828479501392776",
-      "FACEBOOK_APP_SECRET": "YOUR_FACEBOOK_APP_SECRET",
+      "FACEBOOK_APP_SECRET": "bc0f7d8a5cf9ba3965ecf0423acc1e22",
       "eas": {
         "projectId": "d4584ebc-2f95-4fd4-8317-3ade2b9b0d33"
       }
+    },
+
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }
