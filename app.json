@@ -31,9 +31,6 @@
         "UIBackgroundModes": ["audio"],
         "ARKitUnavailableMessage": "Your device does not support ARKit scanning.",
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "entitlements": {
-        "com.apple.developer.arkit": true
       }
     },
 
