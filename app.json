@@ -20,42 +20,39 @@
     "runtimeVersion": {
       "policy": "sdkVersion"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
+
     "ios": {
       "bundleIdentifier": "org.openhouseai.app",
       "buildNumber": "39",
       "supportsTablet": false,
       "deploymentTarget": "15.1",
       "infoPlist": {
-        "NSCameraUsageDescription": "OpenHouse AI needs camera and LiDAR access to scan rooms and generate floor plans.",
+        "NSCameraUsageDescription": "OpenHouse AI uses the camera and LiDAR to scan rooms and create floor plans.",
         "NSMicrophoneUsageDescription": "OpenHouse AI optionally records audio while scanning.",
         "NSLocationWhenInUseUsageDescription": "Location is used to tag properties and improve scan accuracy.",
         "UIFileSharingEnabled": true,
-        "LSSupportsOpeningDocumentsInPlace": true,
-        "ITSAppUsesNonExemptEncryption": false
+        "LSSupportsOpeningDocumentsInPlace": true
+      },
+      "podfileProperties": {
+        "use_modular_headers": "true"
       }
     },
+
     "android": {
       "package": "org.openhouseai.app",
       "versionCode": 39,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
-      },
-      "permissions": [
-        "android.permission.CAMERA"
-      ]
-    },
-    "extra": {
-      "API_BASE": "http://192.168.0.14:8000",
-      "env": "development",
-      "router": {},
-      "eas": {
-        "projectId": "d4584ebc-2f95-4fd4-8317-3ade2b9b0d33"
       }
     },
+
+    "extra": {
+      "API_BASE": "http://192.168.0.14:8000",
+      "env": "development"
+    },
+
     "plugins": [
       "expo-router",
       [
@@ -66,6 +63,7 @@
         }
       ]
     ],
+
     "experiments": {
       "typedRoutes": true
     }
