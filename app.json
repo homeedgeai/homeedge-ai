@@ -24,7 +24,7 @@
     "ios": {
       "bundleIdentifier": "org.openhouseai.app",
       "supportsTablet": false,
-      "buildNumber": "85",
+      "buildNumber": "87",
       "deploymentTarget": "15.1",
       "infoPlist": {
         "NSCameraUsageDescription": "OpenHouse AI requires Camera and LiDAR for scanning.",

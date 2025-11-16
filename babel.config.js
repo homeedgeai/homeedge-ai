@@ -11,16 +11,9 @@ module.exports = function (api) {
         { enforce: "pre" }
       ],
 
-      // 🔥 Load .env variables using @env
-      [
-        "module:react-native-dotenv",
-        {
-          moduleName: "@env",
-          path: ".env",
-        }
-      ],
+      // ❌ REMOVED react-native-dotenv (BREAKS EAS)
 
-      // MUST stay last for Reanimated to work
+      // Reanimated must stay last
       "react-native-reanimated/plugin",
     ],
   };
