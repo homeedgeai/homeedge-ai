@@ -1,187 +1,198 @@
 import ExpoModulesCore
+import UIKit
+import RoomPlan
 import ARKit
-import AVFoundation
 
-// MARK: - WebSocket wrapper
-class WSClient: NSObject, URLSessionDelegate {
-  private var task: URLSessionWebSocketTask?
-  private var session: URLSession?
+// iOS UI for RoomPlan scanning
+@available(iOS 16.0, *)
+class RoomScanViewController: UIViewController, RoomCaptureViewDelegate {
 
-  func connect(_ url: URL) {
-    let config = URLSessionConfiguration.default
-    session = URLSession(configuration: config, delegate: self, delegateQueue: OperationQueue())
-    task = session?.webSocketTask(with: url)
-    task?.resume()
+  private var onComplete: ([String: Any]) -> Void
+  private var onCancel: () -> Void
+
+  private var captureView: RoomCaptureView!
+  private var hasFinished = false
+
+  init(onComplete: @escaping ([String: Any]) -> Void,
+       onCancel: @escaping () -> Void) {
+    self.onComplete = onComplete
+    self.onCancel = onCancel
+    super.init(nibName: nil, bundle: nil)
   }
 
-  func send(text: String) {
-    task?.send(.string(text)) { err in
-      if let err = err { print("[DepthWS] send error:", err.localizedDescription) }
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func loadView() {
+    // Full-screen RoomPlan capture view
+    captureView = RoomCaptureView(frame: .zero)
+    captureView.delegate = self
+    view = captureView
+  }
+
+  override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
+
+    // Start the capture session when the view appears
+    captureView.captureSession.run(configuration: RoomCaptureSession.Configuration())
+  }
+
+  // Called when RoomPlan has a processed room result ready
+  func captureView(_ view: RoomCaptureView,
+                   didPresent processedResult: CapturedRoom,
+                   error: Error?) {
+
+    hasFinished = true
+
+    if let error = error {
+      dismiss(animated: true) {
+        self.onComplete([
+          "error": error.localizedDescription
+        ])
+      }
+      return
     }
-  }
 
-  func close() {
-    task?.cancel(with: .goingAway, reason: nil)
-    session?.invalidateAndCancel()
-    session = nil
-    task = nil
-  }
-}
+    // Export as a USDZ file to a temporary location
+    let tmpURL = FileManager.default
+      .temporaryDirectory
+      .appendingPathComponent("room-\(UUID().uuidString).usdz")
 
-// MARK: - AR session delegate
-class DepthStreamController: NSObject, ARSessionDelegate {
-  private let session = ARSession()
-  private let ws = WSClient()
-  private var jobId: String = ""
-  private var lastSent: CFAbsoluteTime = 0
-  private var targetFPS: Double = 10.0
+    do {
+      try processedResult.export(to: tmpURL)
 
-  func start(jobId: String, backendWS: String) throws {
-    self.jobId = jobId
-
-    guard ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) else {
-      throw NSError(domain: "DepthCapture", code: -1, userInfo: [NSLocalizedDescriptionKey: "Device does not support sceneDepth"])
-    }
-
-    // Camera permission (best effort; ARKit will also request if needed)
-    AVCaptureDevice.requestAccess(for: .video) { _ in }
-
-    let config = ARWorldTrackingConfiguration()
-    config.environmentTexturing = .none
-    config.frameSemantics = [.sceneDepth, .smoothedSceneDepth] // smoothed yields cleaner maps
-
-    // World alignment for stable gravity reference
-    config.worldAlignment = .gravity
-
-    session.delegate = self
-    session.run(config, options: [.resetTracking, .removeExistingAnchors])
-
-    // Open ws://host/ws/scan/<jobId>
-    let normalized = backendWS.hasSuffix("/") ? String(backendWS.dropLast()) : backendWS
-    let urlString = "\(normalized)/ws/scan/\(jobId)"
-    guard let url = URL(string: urlString.replacingOccurrences(of: "http", with: "ws")) else {
-      throw NSError(domain: "DepthCapture", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid backend URL: \(backendWS)"])
-    }
-    ws.connect(url)
-    print("[DepthCapture] Streaming → \(url.absoluteString)")
-  }
-
-  func stop() {
-    session.pause()
-    ws.close()
-  }
-
-  // MARK: ARSessionDelegate
-  func session(_ session: ARSession, didUpdate frame: ARFrame) {
-    // Throttle to targetFPS
-    let now = CFAbsoluteTimeGetCurrent()
-    if now - lastSent < 1.0 / targetFPS { return }
-    lastSent = now
-
-    autoreleasepool {
-      guard let depth = (frame.sceneDepth ?? frame.smoothedSceneDepth) else { return }
-      // Image: compress camera image to JPEG
-      guard let colorJPEG = DepthStreamController.jpegData(from: frame.capturedImage, quality: 0.6) else { return }
-      // Depth: encode as a compact PNG of 16-bit disparity (downscaled)
-      guard let depthPNG = DepthStreamController.depthPNG(from: depth.depthMap) else { return }
-
-      // Intrinsics and pose
-      let intrinsics = frame.camera.intrinsics
-      let transform = frame.camera.transform
-
-      // Build JSON (base64 payloads)
       let payload: [String: Any] = [
-        "type": "frame",
-        "job_id": jobId,
-        "ts": Int64(Date().timeIntervalSince1970 * 1000),
-        "image_jpeg_b64": colorJPEG.base64EncodedString(),
-        "depth_png_b64": depthPNG.base64EncodedString(),
-        "image_size": ["w": frame.camera.imageResolution.width, "h": frame.camera.imageResolution.height],
-        "depth_size": ["w": CVPixelBufferGetWidth(depth.depthMap), "h": CVPixelBufferGetHeight(depth.depthMap)],
-        "intrinsics": [
-          [intrinsics.columns.0.x, intrinsics.columns.0.y, intrinsics.columns.0.z],
-          [intrinsics.columns.1.x, intrinsics.columns.1.y, intrinsics.columns.1.z],
-          [intrinsics.columns.2.x, intrinsics.columns.2.y, intrinsics.columns.2.z]
-        ],
-        "camera_pose": DepthStreamController.matrixToArray(transform)
+        "usdzUrl": tmpURL.path  // local file path
       ]
 
-      if let json = try? JSONSerialization.data(withJSONObject: payload, options: []) {
-        if let text = String(data: json, encoding: .utf8) {
-          ws.send(text: text)
-        }
+      dismiss(animated: true) {
+        self.onComplete(payload)
+      }
+    } catch {
+      dismiss(animated: true) {
+        self.onComplete([
+          "error": error.localizedDescription
+        ])
       }
     }
   }
 
-  // MARK: utilities
-  static func jpegData(from pixelBuffer: CVPixelBuffer, quality: CGFloat) -> Data? {
-    let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-    let context = CIContext(options: [.useSoftwareRenderer: false])
-    guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
-    guard let cg = context.createCGImage(ciImage, from: ciImage.extent) else { return nil }
-    let ui = UIImage(cgImage: cg, scale: 1.0, orientation: .right) // ARKit buffers are landscape; .right works for portrait device
-    return ui.jpegData(compressionQuality: quality)
-  }
+  override func viewDidDisappear(_ animated: Bool) {
+    super.viewDidDisappear(animated)
 
-  static func depthPNG(from depthBuffer: CVPixelBuffer) -> Data? {
-    // Convert depth (float32 meters) → 16-bit disparity-ish (or normalized meters) and encode as PNG.
-    CVPixelBufferLockBaseAddress(depthBuffer, .readOnly)
-    defer { CVPixelBufferUnlockBaseAddress(depthBuffer, .readOnly) }
-
-    let w = CVPixelBufferGetWidth(depthBuffer)
-    let h = CVPixelBufferGetHeight(depthBuffer)
-    guard let baseAddr = CVPixelBufferGetBaseAddress(depthBuffer) else { return nil }
-
-    let floatPtr = baseAddr.bindMemory(to: Float32.self, capacity: w * h)
-
-    // Normalize to 0..65535 within [0m, 8m]
-    let maxDepth: Float32 = 8.0
-    var data16 = [UInt16](repeating: 0, count: w * h)
-    for i in 0..<(w*h) {
-      let d = max(0.0, min(maxDepth, floatPtr[i]))
-      let norm = UInt16((d / maxDepth) * Float32(UInt16.max))
-      data16[i] = norm.bigEndian // big-endian for PNG
+    // If the user dismissed without a finished scan, treat as cancel
+    if !hasFinished {
+      onCancel()
     }
-
-    // Create CGImage from 16-bit grayscale buffer
-    let bitsPerComponent = 16
-    let bitsPerPixel = 16
-    let bytesPerRow = w * 2
-    let colorSpace = CGColorSpaceCreateDeviceGray()
-    let provider = CGDataProvider(data: Data(bytes: &data16, count: data16.count * MemoryLayout<UInt16>.size) as CFData)!
-    guard let cg = CGImage(width: w, height: h, bitsPerComponent: bitsPerComponent, bitsPerPixel: bitsPerPixel, bytesPerRow: bytesPerRow, space: colorSpace, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue), provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent) else {
-      return nil
-    }
-    let ui = UIImage(cgImage: cg)
-    return ui.pngData()
-  }
-
-  static func matrixToArray(_ m: simd_float4x4) -> [[Float]] {
-    return [
-      [m.columns.0.x, m.columns.0.y, m.columns.0.z, m.columns.0.w],
-      [m.columns.1.x, m.columns.1.y, m.columns.1.z, m.columns.1.w],
-      [m.columns.2.x, m.columns.2.y, m.columns.2.z, m.columns.2.w],
-      [m.columns.3.x, m.columns.3.y, m.columns.3.z, m.columns.3.w]
-    ]
   }
 }
 
-// MARK: - Expo Module
+// Expo module that JS talks to: DepthCaptureModule.start / stop
 public class DepthCaptureModule: Module {
-  private let controller = DepthStreamController()
+
+  private var currentPromise: Promise?
 
   public func definition() -> ModuleDefinition {
     Name("DepthCaptureModule")
 
-    AsyncFunction("start") { (jobId: String, backendURL: String) -> String in
-      try self.controller.start(jobId: jobId, backendWS: backendURL)
-      return "started"
+    // start(jobId, backendUrl)
+    AsyncFunction("start") { (jobId: String, backendUrl: String, promise: Promise) in
+      self.startCapture(jobId: jobId, backendUrl: backendUrl, promise: promise)
     }
 
-    AsyncFunction("stop") { () -> String in
-      self.controller.stop()
-      return "stopped"
+    // stop()
+    AsyncFunction("stop") { (promise: Promise) in
+      self.stopCapture(promise: promise)
+    }
+  }
+
+  private func findRootViewController() -> UIViewController? {
+    // Support multiple scenes (iOS 13+)
+    let scenes = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+
+    if let window = scenes.first?.windows.first(where: { $0.isKeyWindow }) {
+      return window.rootViewController
+    }
+
+    // Fallback for older style
+    return UIApplication.shared.keyWindow?.rootViewController
+  }
+
+  private func startCapture(jobId: String, backendUrl: String, promise: Promise) {
+    guard #available(iOS 16.0, *) else {
+      promise.reject(
+        "ROOMPLAN_UNAVAILABLE",
+        "RoomPlan requires iOS 16 and a LiDAR-enabled device.",
+        nil
+      )
+      return
+    }
+
+    guard ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) else {
+      promise.reject(
+        "LIDAR_UNAVAILABLE",
+        "This device does not support LiDAR depth scanning.",
+        nil
+      )
+      return
+    }
+
+    DispatchQueue.main.async {
+      guard let rootVC = self.findRootViewController() else {
+        promise.reject(
+          "NO_ROOT_VIEW_CONTROLLER",
+          "Unable to find root view controller to present RoomPlan UI.",
+          nil
+        )
+        return
+      }
+
+      self.currentPromise = promise
+
+      let scannerVC = RoomScanViewController(
+        onComplete: { payload in
+          // You can later post payload + jobId/backendUrl to your backend from JS.
+          self.currentPromise?.resolve(payload)
+          self.currentPromise = nil
+        },
+        onCancel: {
+          self.currentPromise?.reject(
+            "SCAN_CANCELLED",
+            "User cancelled room scan.",
+            nil
+          )
+          self.currentPromise = nil
+        }
+      )
+
+      scannerVC.modalPresentationStyle = .fullScreen
+      rootVC.present(scannerVC, animated: true, completion: nil)
+    }
+  }
+
+  private func stopCapture(promise: Promise) {
+    DispatchQueue.main.async {
+      guard let rootVC = self.findRootViewController() else {
+        promise.resolve(nil)
+        return
+      }
+
+      if let presented = rootVC.presentedViewController,
+         presented is RoomScanViewController {
+        presented.dismiss(animated: true) {
+          self.currentPromise?.reject(
+            "SCAN_STOPPED",
+            "Scan was stopped programmatically.",
+            nil
+          )
+          self.currentPromise = nil
+          promise.resolve(nil)
+        }
+      } else {
+        promise.resolve(nil)
+      }
     }
   }
 }

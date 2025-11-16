@@ -1,0 +1,17 @@
+{
+  "extends": "expo-module-scripts/tsconfig.base",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "build",
+    "composite": false,
+    "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "jsx": "react-native",
+    "moduleResolution": "node",
+    "target": "ES2019",
+    "lib": ["es2019"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "build"]
+}

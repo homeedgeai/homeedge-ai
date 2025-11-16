@@ -2,7 +2,7 @@
   "expo": {
     "name": "OpenHouse AI",
     "slug": "openhouse-ai",
-    "owner": "homeedgeaidev",
+    "owner": "homeedge1.0.1", 
     "version": "1.0.0",
     "scheme": "openhouseai",
     "orientation": "portrait",
@@ -19,13 +19,12 @@
     "runtimeVersion": {
       "policy": "sdkVersion"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
+
     "ios": {
       "bundleIdentifier": "org.openhouseai.app",
       "supportsTablet": false,
-      "buildNumber": "75",
+      "buildNumber": "85",
       "deploymentTarget": "15.1",
       "infoPlist": {
         "NSCameraUsageDescription": "OpenHouse AI requires Camera and LiDAR for scanning.",
@@ -36,12 +35,12 @@
         "LSSupportsOpeningDocumentsInPlace": true
       }
     },
+
     "android": {
-      "permissions": [
-        "android.permission.CAMERA"
-      ],
+      "permissions": ["android.permission.CAMERA"],
       "package": "org.openhouseai.app"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -57,33 +56,24 @@
           "ios": {
             "useFrameworks": "static",
             "extraPods": [
-              {
-                "name": "GoogleUtilities",
-                "modular_headers": true
-              },
-              {
-                "name": "FirebaseCoreInternal",
-                "modular_headers": true
-              },
-              {
-                "name": "FirebaseCore",
-                "modular_headers": true
-              }
+              { "name": "GoogleUtilities", "modular_headers": true },
+              { "name": "FirebaseCoreInternal", "modular_headers": true },
+              { "name": "FirebaseCore", "modular_headers": true }
             ]
           }
         }
       ]
     ],
+
     "extra": {
       "env": "development",
       "API_BASE": "http://192.168.0.14:8000",
       "router": {},
       "eas": {
-        "projectId": "55636870-1992-44bf-aae0-8b5618365e57"
+        "projectId": "bf663651-34ed-4413-90ae-5e164f3636c7"
       }
     },
-    "experiments": {
-      "typedRoutes": true
-    }
+
+    "experiments": { "typedRoutes": true }
   }
 }

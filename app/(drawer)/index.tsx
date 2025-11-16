@@ -195,7 +195,7 @@ export default function DashboardScreen() {
             <QuickButton
               label="Listings"
               icon="briefcase-outline"
-              onPress={() => router.push("/(drawer)/listings")}
+              onPress={() => router.push("/listings")}
             />
             <QuickButton
               label="Calendar"

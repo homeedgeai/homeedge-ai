@@ -13,10 +13,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import {
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-} from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebaseConfig";
 
 export default function LoginScreen() {
@@ -30,6 +27,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setWarning(null);
+
     if (!email || !password) {
       setWarning("Please enter both email and password.");
       return;
@@ -37,38 +35,37 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
+
       const userCred = await signInWithEmailAndPassword(
         auth,
         email.trim(),
         password
       );
+
       const user = userCred.user;
 
-      if (!user.emailVerified) {
-        setWarning(
-          "Please verify your email — check your inbox or spam folder for the verification link."
-        );
+      // ⭐ FIX: Force Firebase to refresh emailVerified
+      await user.reload();
+
+      if (!auth.currentUser?.emailVerified) {
+        setWarning("Please verify your email before signing in.");
+        setLoading(false);
         return;
       }
 
+      // SUCCESS → let layout redirect into app
       router.replace("/(drawer)");
+
     } catch (e: any) {
-      setWarning(e.message || "Login failed. Please try again.");
+      let msg = "Login failed. Try again.";
+
+      if (e.code === "auth/user-not-found") msg = "No account found.";
+      else if (e.code === "auth/wrong-password") msg = "Incorrect password.";
+      else if (e.code === "auth/invalid-email") msg = "Invalid email format.";
+
+      setWarning(msg);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setWarning("Enter your email first to receive a reset link.");
-      return;
-    }
-    try {
-      await sendPasswordResetEmail(auth, email.trim());
-      setWarning("Password reset link sent. Check your inbox.");
-    } catch (e: any) {
-      setWarning(e.message);
     }
   };
 
@@ -80,9 +77,7 @@ export default function LoginScreen() {
       end={{ x: 1, y: 1 }}
     >
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView
-          contentContainerStyle={{ alignItems: "center", justifyContent: "center" }}
-        >
+        <ScrollView contentContainerStyle={{ alignItems: "center", justifyContent: "center" }}>
           <View style={styles.card}>
             <Text style={styles.title}>Welcome Back 👋</Text>
             <Text style={styles.subtitle}>Sign in to continue</Text>
@@ -97,7 +92,6 @@ export default function LoginScreen() {
               onChangeText={setEmail}
             />
 
-            {/* Password input with eye toggle */}
             <View style={styles.passwordWrap}>
               <TextInput
                 style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]}
@@ -107,6 +101,7 @@ export default function LoginScreen() {
                 value={password}
                 onChangeText={setPassword}
               />
+
               <TouchableOpacity
                 style={styles.eyeBtn}
                 onPress={() => setShowPassword(!showPassword)}
@@ -118,10 +113,6 @@ export default function LoginScreen() {
                 />
               </TouchableOpacity>
             </View>
-
-            <TouchableOpacity onPress={handleForgotPassword}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.button, loading && { opacity: 0.7 }]}
@@ -142,10 +133,11 @@ export default function LoginScreen() {
             )}
 
             <TouchableOpacity onPress={() => router.push("/signup")}>
-              <Text style={styles.linkText}>
-                New here? <Text style={styles.linkBold}>Create an account</Text>
+              <Text style={styles.signupText}>
+                New here? <Text style={styles.signupBold}>Create an account</Text>
               </Text>
             </TouchableOpacity>
+
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -154,16 +146,12 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center" },
+  container: { flex: 1 },
   card: {
     width: "88%",
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 24,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
     alignSelf: "center",
     marginTop: 60,
   },
@@ -189,19 +177,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     paddingRight: 10,
   },
-  eyeBtn: { paddingHorizontal: 6 },
   button: {
     backgroundColor: "#2563EB",
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
-    marginTop: 6,
     marginBottom: 12,
   },
   buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  linkText: { color: "#6B7280", textAlign: "center", marginTop: 10 },
-  linkBold: { color: "#2563EB", fontWeight: "700", textAlign: "center" },
-  forgotText: { color: "#2563EB", textAlign: "right", marginBottom: 10 },
   warningBox: {
     backgroundColor: "#FEF3C7",
     borderRadius: 8,
@@ -213,5 +196,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     fontWeight: "500",
+  },
+  signupText: {
+    color: "#6B7280",
+    textAlign: "center",
+    marginTop: 10,
+  },
+  signupBold: {
+    color: "#2563EB",
+    fontWeight: "700",
   },
 });

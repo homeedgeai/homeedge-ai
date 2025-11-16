@@ -1,32 +1,37 @@
-// firebaseConfig.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   initializeAuth,
   getReactNativePersistence,
 } from "firebase/auth";
-import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFirestore } from "firebase/firestore";
 
-// ✅ Correct configuration (from your Firebase console)
+import {
+  EXPO_PUBLIC_FIREBASE_API_KEY,
+  EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  EXPO_PUBLIC_FIREBASE_APP_ID,
+  EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
+} from "@env";
+
 const firebaseConfig = {
-  apiKey: "AIzaSyA_g3HMPhBW22KMoFuJw85fSdmD4SFU2o0",
-  authDomain: "finalhomeedge.firebaseapp.com",
-  projectId: "finalhomeedge",
-  storageBucket: "finalhomeedge.appspot.com",
-  messagingSenderId: "713071714077",
-  appId: "1:713071714077:web:552706292e08492008cbf4",
-  measurementId: "G-97DKXSPRPL",
+  apiKey: EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// 🔹 Prevent re-initializing
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// 🔹 React Native-safe Auth (persistent)
 const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+  persistence: getReactNativePersistence(AsyncStorage),
 });
 
-// 🔹 Firestore
 const db = getFirestore(app);
 
 export { app, auth, db };

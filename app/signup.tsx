@@ -5,256 +5,282 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
   createUserWithEmailAndPassword,
-  updateProfile,
   sendEmailVerification,
+  updateProfile,
 } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "../firebaseConfig";
+import { auth } from "../firebaseConfig";
 
 export default function SignupScreen() {
   const router = useRouter();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
-  const [info, setInfo] = useState<string | null>(null);
-  const [canResend, setCanResend] = useState(false);
-  const [userRef, setUserRef] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSignup = async () => {
-    setInfo(null);
-    setCanResend(false);
+    setError(null);
 
-    if (!name || !email || !password || !confirm) {
-      setInfo("Please fill all required fields.");
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName || !trimmedEmail || !password || !confirm) {
+      setError("Please fill in all fields.");
       return;
     }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
     if (password !== confirm) {
-      setInfo("Passwords do not match.");
+      setError("Passwords do not match.");
       return;
     }
 
     try {
       setLoading(true);
 
-      // Create Firebase user
-      const userCred = await createUserWithEmailAndPassword(
+      const cred = await createUserWithEmailAndPassword(
         auth,
-        email.trim(),
+        trimmedEmail,
         password
       );
-      const user = userCred.user;
-      setUserRef(user);
-      await updateProfile(user, { displayName: name });
+
+      // Set display name
+      await updateProfile(cred.user, { displayName: trimmedName });
 
       // Send verification email
-      await sendEmailVerification(user);
+      await sendEmailVerification(cred.user);
 
-      // Write to Firestore (retry logic)
-      const userDoc = doc(db, "users", user.uid);
-      let writeSuccess = false;
-      let attempts = 0;
-      while (!writeSuccess && attempts < 3) {
-        try {
-          await setDoc(userDoc, {
-            name,
-            email,
-            plan: "none",
-            verified: false,
-            createdAt: serverTimestamp(),
-          });
-          writeSuccess = true;
-        } catch {
-          attempts++;
-          await new Promise((r) => setTimeout(r, 1000));
-        }
+      // Go to verify screen
+      router.replace({
+        pathname: "/auth/verifyEmail",
+        params: { email: cred.user.email ?? trimmedEmail },
+      });
+    } catch (e: any) {
+      let msg = "Sign up failed. Try again.";
+
+      switch (e?.code) {
+        case "auth/email-already-in-use":
+          msg = "That email is already in use.";
+          break;
+        case "auth/invalid-email":
+          msg = "Please enter a valid email address.";
+          break;
+        case "auth/weak-password":
+          msg = "Password is too weak.";
+          break;
       }
 
-      setInfo(
-        "A verification link has been sent to your email. Please verify your account before signing in."
-      );
-      setCanResend(true);
-
-      // Redirect to login after a short delay
-      setTimeout(() => router.replace("/login"), 3500);
-    } catch (e: any) {
-      setInfo(e.message || "Signup failed. Please try again.");
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendEmail = async () => {
-    if (!userRef) {
-      setInfo("Please create an account first.");
-      return;
-    }
-    try {
-      await sendEmailVerification(userRef);
-      setInfo("Verification email resent. Check your inbox.");
-    } catch (e: any) {
-      setInfo(e.message || "Failed to resend verification email.");
-    }
-  };
-
   return (
-    <LinearGradient
-      colors={["#FFFFFF", "#F3F8FF", "#E6F0FF"]}
-      style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
+    <View style={styles.root}>
       <KeyboardAvoidingView
+        style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          contentContainerStyle={{
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.card}>
             <Text style={styles.title}>Create Your Account</Text>
             <Text style={styles.subtitle}>Start exploring in seconds</Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Full Name"
-              placeholderTextColor="#9CA3AF"
-              value={name}
-              onChangeText={setName}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#9CA3AF"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm Password"
-              placeholderTextColor="#9CA3AF"
-              secureTextEntry
-              value={confirm}
-              onChangeText={setConfirm}
-            />
+            {/* Name */}
+            <View style={styles.fieldWrapper}>
+              <Text style={styles.label}>Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Your name"
+                placeholderTextColor="#C7C7CC"
+                value={name}
+                onChangeText={setName}
+                returnKeyType="next"
+              />
+            </View>
 
+            {/* Email */}
+            <View style={styles.fieldWrapper}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="you@example.com"
+                placeholderTextColor="#C7C7CC"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={email}
+                onChangeText={setEmail}
+                returnKeyType="next"
+              />
+            </View>
+
+            {/* Password */}
+            <View style={styles.fieldWrapper}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Create a password"
+                placeholderTextColor="#C7C7CC"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                returnKeyType="next"
+              />
+            </View>
+
+            {/* Confirm */}
+            <View style={styles.fieldWrapper}>
+              <Text style={styles.label}>Confirm password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Repeat password"
+                placeholderTextColor="#C7C7CC"
+                secureTextEntry
+                value={confirm}
+                onChangeText={setConfirm}
+                returnKeyType="done"
+              />
+            </View>
+
+            {/* Create account button */}
             <TouchableOpacity
-              style={[styles.button, loading && { opacity: 0.6 }]}
+              style={[styles.primaryButton, loading && styles.disabledButton]}
               onPress={handleSignup}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.buttonText}>Create Account</Text>
+                <Text style={styles.primaryButtonText}>Create Account</Text>
               )}
             </TouchableOpacity>
 
-            {info && (
-              <View style={styles.infoBox}>
-                <Text style={styles.infoText}>{info}</Text>
-                {canResend && (
-                  <TouchableOpacity
-                    style={styles.resendBtn}
-                    onPress={handleResendEmail}
-                  >
-                    <Text style={styles.resendText}>Resend Verification Email</Text>
-                  </TouchableOpacity>
-                )}
+            {/* Error */}
+            {error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
 
-            <TouchableOpacity onPress={() => router.push("/login")}>
-              <Text style={styles.linkText}>
-                Already have an account?{" "}
-                <Text style={styles.linkBold}>Sign In</Text>
-              </Text>
-            </TouchableOpacity>
+            {/* Bottom text */}
+            <View style={styles.bottomRow}>
+              <Text style={styles.bottomText}>Already have an account?</Text>
+              <TouchableOpacity onPress={() => router.replace("/login")}>
+                <Text style={styles.linkText}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center" },
+  root: {
+    flex: 1,
+    backgroundColor: "#F5F5F7",
+  },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
   card: {
-    width: "88%",
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-    alignSelf: "center",
-    marginTop: 60,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 26,
+    shadowColor: "transparent",
   },
-  title: { fontSize: 28, fontWeight: "800", color: "#111827", marginBottom: 4 },
-  subtitle: { color: "#6B7280", marginBottom: 20 },
+  title: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#111111",
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: "#6E6E73",
+    marginBottom: 24,
+  },
+  fieldWrapper: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 13,
+    color: "#6E6E73",
+    marginBottom: 4,
+  },
   input: {
-    width: "100%",
+    height: 46,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
-    backgroundColor: "#F9FAFB",
-    color: "#111827",
+    borderColor: "#E5E5EA",
+    paddingHorizontal: 12,
+    backgroundColor: "#FFFFFF",
+    fontSize: 15,
+    color: "#111111",
   },
-  button: {
-    backgroundColor: "#2563EB",
-    borderRadius: 12,
-    paddingVertical: 14,
+  primaryButton: {
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: "#007AFF",
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 6,
-    marginBottom: 12,
+    marginTop: 8,
   },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  infoBox: {
-    backgroundColor: "#FEF3C7",
-    borderRadius: 8,
+  disabledButton: {
+    opacity: 0.6,
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  errorBox: {
+    backgroundColor: "#FFF2F2",
+    borderRadius: 10,
     padding: 10,
-    marginTop: 4,
-    alignItems: "center",
+    marginTop: 10,
   },
-  infoText: {
-    color: "#92400E",
+  errorText: {
+    color: "#D70015",
     fontSize: 13,
     textAlign: "center",
-    fontWeight: "500",
   },
-  resendBtn: {
-    marginTop: 8,
-    backgroundColor: "#2563EB",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  bottomRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 18,
   },
-  resendText: { color: "#fff", fontWeight: "600" },
-  linkText: { color: "#6B7280", textAlign: "center", marginTop: 10 },
-  linkBold: { color: "#2563EB", fontWeight: "700" },
+  bottomText: {
+    fontSize: 14,
+    color: "#6E6E73",
+    marginRight: 4,
+  },
+  linkText: {
+    fontSize: 14,
+    color: "#007AFF",
+    fontWeight: "600",
+  },
 });

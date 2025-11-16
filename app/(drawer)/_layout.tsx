@@ -1,28 +1,13 @@
-import React from "react";
 import { Drawer } from "expo-router/drawer";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { Platform } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function DrawerLayout() {
   return (
     <Drawer
       screenOptions={{
-        drawerContentStyle: {
-          marginTop: Platform.OS === "ios" ? 60 : 30,
-          borderTopLeftRadius: 24,
-          borderBottomLeftRadius: 24,
-          backgroundColor: "#F8F8F8",
-        },
-        drawerItemStyle: { borderRadius: 12, marginVertical: 4 },
-        drawerLabelStyle: { fontSize: 16, fontWeight: "500", marginLeft: -4 },
-        drawerActiveTintColor: "#000",
-        drawerInactiveTintColor: "#6D6D6D",
-        drawerActiveBackgroundColor: "#E9E9E9",
-        headerStyle: { backgroundColor: "#FFFFFF" },
-        headerTintColor: "#000",
-        useLegacyImplementation: true, // 🧩 fixes Reanimated crash
-        drawerType: Platform.OS === "ios" ? "front" : "slide",
-        overlayColor: "rgba(0,0,0,0.15)",
+        headerShown: false,
+        drawerActiveTintColor: "#007bff",
+        drawerInactiveTintColor: "#555",
       }}
     >
       <Drawer.Screen
@@ -34,15 +19,7 @@ export default function DrawerLayout() {
           ),
         }}
       />
-      <Drawer.Screen
-        name="listings"
-        options={{
-          title: "Listings",
-          drawerIcon: ({ color, size }) => (
-            <Ionicons name="briefcase-outline" color={color} size={size} />
-          ),
-        }}
-      />
+
       <Drawer.Screen
         name="calendar"
         options={{
@@ -52,6 +29,7 @@ export default function DrawerLayout() {
           ),
         }}
       />
+
       <Drawer.Screen
         name="performance"
         options={{
@@ -61,6 +39,7 @@ export default function DrawerLayout() {
           ),
         }}
       />
+
       <Drawer.Screen
         name="settings"
         options={{
@@ -70,6 +49,7 @@ export default function DrawerLayout() {
           ),
         }}
       />
+
       <Drawer.Screen
         name="map"
         options={{
@@ -79,6 +59,7 @@ export default function DrawerLayout() {
           ),
         }}
       />
+
       <Drawer.Screen
         name="gallery"
         options={{
@@ -88,16 +69,24 @@ export default function DrawerLayout() {
           ),
         }}
       />
+
       <Drawer.Screen
         name="manage-subscription"
         options={{
           title: "Manage Subscription",
           drawerIcon: ({ color, size }) => (
-            <MaterialCommunityIcons
-              name="credit-card-outline"
-              color={color}
-              size={size}
-            />
+            <Ionicons name="card-outline" color={color} size={size} />
+          ),
+        }}
+      />
+
+      {/* FIXED LISTINGS */}
+      <Drawer.Screen
+        name="listings"
+        options={{
+          title: "Listings",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="briefcase-outline" color={color} size={size} />
           ),
         }}
       />
